@@ -1,0 +1,87 @@
+# Model metadata only. Weights are intentionally excluded from this repository.
+# Obtain every artifact from an authorised source and verify its checksum before use.
+models:
+  - id: h3-video-dit
+    file: minimax_h3_fl2va_pruned_int8_convrot.safetensors
+    role: H3 Standard video diffusion model
+    precision: INT8 ConvRot
+    source_class: authorised MiniMax distribution or approved mirror
+    sha256: verify with source before deployment
+    redistributable: false
+  - id: h3-reference-video-dit
+    file: minimax_h3_ref2va_pruned_int8_convrot.safetensors
+    role: H3 reference-to-video diffusion model
+    precision: INT8 ConvRot
+    source_class: authorised MiniMax distribution or approved mirror
+    sha256: verify with source before deployment
+    redistributable: false
+  - id: h3-text-encoder
+    file: qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors
+    role: H3 text and multimodal conditioning
+    precision: NVFP4 AWQ
+    source_class: authorised MiniMax distribution or approved mirror
+    sha256: verify with source before deployment
+    redistributable: false
+  - id: h3-video-vae
+    file: minimax_h3_video_vae_fp16.safetensors
+    role: H3 video VAE
+    precision: FP16
+    source_class: authorised MiniMax distribution or approved mirror
+    sha256: verify with source before deployment
+    redistributable: false
+  - id: h3-audio-vae
+    file: minimax_h3_audio_vae_fp32.safetensors
+    role: H3 audio VAE
+    precision: FP32
+    source_class: authorised MiniMax distribution or approved mirror
+    sha256: verify with source before deployment
+    redistributable: false
+  - id: h3-turbo-lora
+    file: minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors
+    role: H3 8-step preview LoRA
+    precision: BF16
+    source_class: authorised MiniMax distribution or approved mirror
+    sha256: verify with source before deployment
+    redistributable: false
+  - id: fasth3-vsa-lora
+    file: fasth3_vsa_4-steps-v5.safetensors
+    role: FastH3 VSA preview LoRA
+    precision: source-defined
+    source_class: approved FastH3 package
+    sha256: verify with source before deployment
+    redistributable: false
+  - id: fasth3-vsa-gate
+    file: fasth3_vsa_gate.safetensors
+    role: FastH3 VSA routing gate
+    precision: source-defined
+    source_class: approved FastH3 package
+    sha256: verify with source before deployment
+    redistributable: false
+  - id: music3-dit
+    file: minimax_music3_dit_fp16.safetensors
+    role: MiniMax Music3 diffusion model
+    precision: FP16
+    source_class: authorised MiniMax distribution or approved mirror
+    sha256: verify with source before deployment
+    redistributable: false
+  - id: music3-text-encoder
+    file: minimax_music3_text_encoder_pruned_int8_convrot.safetensors
+    role: MiniMax Music3 text encoder
+    precision: INT8 ConvRot
+    source_class: authorised MiniMax distribution or approved mirror
+    sha256: verify with source before deployment
+    redistributable: false
+  - id: music3-audio-vae
+    file: minimax_music3_dav.safetensors
+    role: MiniMax Music3 audio VAE
+    precision: source-defined
+    source_class: authorised MiniMax distribution or approved mirror
+    sha256: verify with source before deployment
+    redistributable: false
+  - id: realesrgan-x2
+    file: RealESRGAN_x2plus.pth
+    role: deterministic x2 video enhancement model
+    precision: source-defined
+    source_class: approved RealESRGAN release
+    sha256: 49fafd45f8fd7aa8d31ab2a22d14d91b536c34494a5cfe31eb5d89c2fa266abb
+    redistributable: false

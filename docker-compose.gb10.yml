@@ -1,0 +1,66 @@
+services:
+  h3-studio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: h3-studio:gb10
+    container_name: h3-studio
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      H3_STUDIO_HOST: 127.0.0.1
+      H3_STUDIO_PORT: "5174"
+      COMFYUI_URL: http://127.0.0.1:8188
+      FLASHVSR_WORKER_URL: http://127.0.0.1:8190
+      FLASHVSR_STATE_PATH: /flashvsr-state/compatibility.json
+      DETERMINISTIC_UPSCALE_WORKER_URL: http://127.0.0.1:8191
+    volumes:
+      - "${H3_STUDIO_GB10_DIR:?set H3_STUDIO_GB10_DIR}/flashvsr-state:/flashvsr-state:ro"
+
+  flashvsr-worker:
+    build:
+      context: .
+      dockerfile: flashvsr_worker/Dockerfile
+    image: h3-studio-flashvsr:gb10
+    container_name: h3-studio-flashvsr
+    network_mode: host
+    restart: unless-stopped
+    gpus: all
+    mem_limit: 56g
+    memswap_limit: 56g
+    environment:
+      FLASHVSR_REPO: /opt/FlashVSR
+      FLASHVSR_MODEL_DIR: /models/FlashVSR
+      FLASHVSR_STATE_DIR: /state
+      FLASHVSR_OUTPUT_ROOT: /comfy-output
+      FLASHVSR_WORK_DIR: /work
+    volumes:
+      - "${H3_STUDIO_COMFY_OUTPUT_DIR:?set H3_STUDIO_COMFY_OUTPUT_DIR}:/comfy-output"
+      - "${H3_STUDIO_FLASHVSR_MODEL_DIR:?set H3_STUDIO_FLASHVSR_MODEL_DIR}:/models/FlashVSR:ro"
+      - "${H3_STUDIO_GB10_DIR:?set H3_STUDIO_GB10_DIR}/flashvsr-venv:/flashvsr-venv:ro"
+      - "${H3_STUDIO_GB10_DIR:?set H3_STUDIO_GB10_DIR}/flashvsr-state:/state"
+      - "${H3_STUDIO_GB10_DIR:?set H3_STUDIO_GB10_DIR}/flashvsr-work:/work"
+
+  realesrgan-worker:
+    build:
+      context: .
+      dockerfile: realesrgan_worker/Dockerfile
+    image: h3-studio-realesrgan:gb10
+    container_name: h3-studio-realesrgan
+    network_mode: host
+    restart: unless-stopped
+    gpus: all
+    mem_limit: 6g
+    memswap_limit: 6g
+    environment:
+      REALESRGAN_MODEL_DIR: /models/RealESRGAN
+      REALESRGAN_STATE_DIR: /state
+      REALESRGAN_OUTPUT_ROOT: /comfy-output
+      REALESRGAN_WORK_DIR: /work
+    volumes:
+      - "${H3_STUDIO_COMFY_OUTPUT_DIR:?set H3_STUDIO_COMFY_OUTPUT_DIR}:/comfy-output"
+      - "${H3_STUDIO_GB10_DIR:?set H3_STUDIO_GB10_DIR}/realesrgan-models:/models/RealESRGAN:ro"
+      - "${H3_STUDIO_GB10_DIR:?set H3_STUDIO_GB10_DIR}/flashvsr-venv:/worker-venv:ro"
+      - "${H3_STUDIO_GB10_DIR:?set H3_STUDIO_GB10_DIR}/realesrgan-state:/state"
+      - "${H3_STUDIO_GB10_DIR:?set H3_STUDIO_GB10_DIR}/realesrgan-work:/work"
