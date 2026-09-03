@@ -1,7 +1,7 @@
 # H3 Studio 可迁移 GitHub 仓库设计
 
-**状态：** 待用户审阅  
-**目标仓库：** `Xiaofei-fei/h3-studio-gb10`（默认私有）  
+**状态：** 已批准
+**目标仓库：** `Xiaofei-fei/h3-studio-gb10`（默认私有）
 **目标：** 将当前 MiniMax H3 Studio 系统整理为不携带权重和私密配置、可在另一台已满足硬件条件的机器上复现部署的 GitHub 仓库。
 
 ## 1. 背景与边界
