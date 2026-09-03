@@ -1,0 +1,2 @@
+# Keep checkouts stable across Windows, WSL, Linux, and GB10.
+* text=auto eol=lf

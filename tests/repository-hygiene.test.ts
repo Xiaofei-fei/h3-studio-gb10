@@ -10,6 +10,7 @@ describe('portable repository hygiene', () => {
   it('ignores mutable and secret state while leaving user-facing docs trackable', () => {
     const gitignore = readWorkspaceFile('.gitignore');
     const dockerignore = readWorkspaceFile('.dockerignore');
+    const attributes = readWorkspaceFile('.gitattributes');
 
     for (const entry of [
       '.env',
@@ -29,5 +30,6 @@ describe('portable repository hygiene', () => {
     expect(gitignore).toContain('!docs/superpowers/specs/2026-09-03-h3-studio-portable-github-design.md');
     expect(dockerignore).toMatch(/^\.playwright-cli\/?$/m);
     expect(dockerignore).toContain('cloudflare-worker/wrangler.jsonc');
+    expect(attributes).toContain('* text=auto eol=lf');
   });
 });
