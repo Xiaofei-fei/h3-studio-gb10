@@ -20,7 +20,13 @@
 
 1. GB10 已安装可工作的 NVIDIA 驱动，`nvidia-smi` 能显示 GPU。
 2. Docker Engine 与 Docker Compose v2 已安装。
-3. NVIDIA Container Toolkit 已配置到 Docker；安装方式以 [NVIDIA 官方指南](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) 为准。完成后应能通过 `docker run --rm --gpus all <gpu-image> nvidia-smi`。
+3. NVIDIA Container Toolkit 已配置到 Docker；安装方式以 [NVIDIA 官方指南](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) 为准。若机器只有驱动和 Docker，可让引导脚本按该官方流程安装并配置（会修改 Docker 配置并重启 Docker）：
+
+```bash
+./scripts/bootstrap-fresh-gb10.sh --env .env.fresh --install-nvidia-container-toolkit
+```
+
+完成后应能通过 `docker run --rm --gpus all <gpu-image> nvidia-smi`。
 4. 已获此私有仓库和 GitHub Container Registry 包的访问权。首次在机器上拉取前执行：
 
 ```bash

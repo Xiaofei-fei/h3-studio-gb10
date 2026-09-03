@@ -19,6 +19,7 @@ readonly RUNTIME_GID=1000
 ENV_FILE="$REPO_DIR/.env.fresh"
 SKIP_MODEL_DOWNLOAD=0
 PRIVATE_ASSETS_DIR=""
+INSTALL_NVIDIA_TOOLKIT=0
 
 usage() {
   cat <<'EOF'
@@ -29,6 +30,9 @@ Options:
   --skip-model-download      Do not contact ModelScope/GitHub; validate/start
                              with model files that are already present.
   --private-assets DIR       Copy the authorized FastH3 LoRA and gate from DIR.
+  --install-nvidia-container-toolkit
+                             Install and configure the NVIDIA Container Toolkit
+                             for Docker on Ubuntu/Debian (requires sudo).
   -h, --help                 Show this help.
 
 The environment file must be copied from .env.fresh.example and contains only
@@ -96,6 +100,32 @@ validate_environment() {
     || die '模型和运行时目录不能直接等于 H3_STUDIO_ROOT。'
 }
 
+as_root() {
+  if (( EUID == 0 )); then
+    "$@"
+  else
+    command -v sudo >/dev/null || die '安装 NVIDIA Container Toolkit 需要 root 或 sudo。'
+    sudo "$@"
+  fi
+}
+
+install_nvidia_container_toolkit() {
+  command -v apt-get >/dev/null || die '自动安装仅支持 Ubuntu/Debian 的 apt 主机。请按 NVIDIA 官方文档手动配置。'
+
+  log '按 NVIDIA 官方仓库配置 NVIDIA Container Toolkit，并重启 Docker。'
+  as_root apt-get update
+  as_root apt-get install -y --no-install-recommends ca-certificates curl gnupg2
+  curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
+    | as_root gpg --dearmor --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+  curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list \
+    | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
+    | as_root tee /etc/apt/sources.list.d/nvidia-container-toolkit.list >/dev/null
+  as_root apt-get update
+  as_root apt-get install -y nvidia-container-toolkit
+  as_root nvidia-ctk runtime configure --runtime=docker
+  as_root systemctl restart docker
+}
+
 ensure_docker_gpu() {
   command -v docker >/dev/null || die '未找到 Docker。请先安装 Docker Engine 与 Docker Compose v2。'
   docker compose version >/dev/null || die '未找到 Docker Compose v2（docker compose）。'
@@ -107,8 +137,10 @@ ensure_docker_gpu() {
   docker pull "$H3_STUDIO_APP_IMAGE"
 
   log '验证 Docker 可以取得 NVIDIA GPU。'
-  docker run --rm --gpus all --entrypoint nvidia-smi "$H3_STUDIO_COMFY_IMAGE" \
-    --query-gpu=name,driver_version --format=csv,noheader
+  if ! docker run --rm --gpus all --entrypoint nvidia-smi "$H3_STUDIO_COMFY_IMAGE" \
+    --query-gpu=name,driver_version --format=csv,noheader; then
+    die 'Docker 尚不能访问 GPU。请先安装/配置 NVIDIA Container Toolkit，或重试时加入 --install-nvidia-container-toolkit。'
+  fi
 }
 
 prepare_directories() {
@@ -293,6 +325,10 @@ while (( $# > 0 )); do
       PRIVATE_ASSETS_DIR="$2"
       shift 2
       ;;
+    --install-nvidia-container-toolkit)
+      INSTALL_NVIDIA_TOOLKIT=1
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -304,6 +340,9 @@ done
 ENV_FILE="$(cd -- "$(dirname -- "$ENV_FILE")" && pwd)/$(basename -- "$ENV_FILE")"
 load_environment "$ENV_FILE"
 validate_environment
+if (( INSTALL_NVIDIA_TOOLKIT == 1 )); then
+  install_nvidia_container_toolkit
+fi
 ensure_docker_gpu
 prepare_directories
 extract_runtime_venv

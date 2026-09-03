@@ -32,6 +32,8 @@ describe('fresh GB10 deployment contract', () => {
     expect(script).toContain('nvidia-smi');
     expect(script).toContain('docker create');
     expect(script).toContain('docker cp');
+    expect(script).toContain('--install-nvidia-container-toolkit');
+    expect(script).toContain('nvidia-ctk runtime configure --runtime=docker');
     expect(script).toContain('Comfy-Org/MiniMax-H3');
     expect(script).toContain('Comfy-Org/MiniMax-Music-3');
     expect(script).toContain('minimax_h3_fl2va_pruned_int8_convrot.safetensors');
