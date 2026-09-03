@@ -1,0 +1,103 @@
+services:
+  comfyui:
+    image: ${H3_STUDIO_COMFY_IMAGE:?set H3_STUDIO_COMFY_IMAGE}
+    pull_policy: always
+    container_name: h3-studio-comfyui
+    restart: unless-stopped
+    # The published runtime uses the base image's non-root service account.
+    user: "1000:1000"
+    gpus: all
+    environment:
+      WANTED_UID: "1000"
+      WANTED_GID: "1000"
+      COMFY_CMDLINE_EXTRA: --models-directory /models/minimax-h3 --vram-headroom 8 --preview-method none --enable-manager --use-sage-attention
+    volumes:
+      - "${H3_STUDIO_MODELS_DIR:?set H3_STUDIO_MODELS_DIR}:/models/minimax-h3:ro"
+      - "${H3_STUDIO_DATA_DIR:?set H3_STUDIO_DATA_DIR}/input:/comfy/mnt/ComfyUI/input"
+      - "${H3_STUDIO_DATA_DIR:?set H3_STUDIO_DATA_DIR}/output:/comfy/mnt/ComfyUI/output"
+    ports:
+      - "127.0.0.1:${H3_STUDIO_COMFY_PORT:-8188}:8188"
+    networks:
+      - h3-studio-internal
+
+  h3-studio:
+    image: ${H3_STUDIO_APP_IMAGE:?set H3_STUDIO_APP_IMAGE}
+    pull_policy: always
+    container_name: h3-studio
+    restart: unless-stopped
+    depends_on:
+      - comfyui
+      - realesrgan-worker
+    environment:
+      NODE_ENV: production
+      H3_STUDIO_HOST: 0.0.0.0
+      H3_STUDIO_PORT: "5174"
+      COMFYUI_URL: http://comfyui:8188
+      FLASHVSR_WORKER_URL: http://flashvsr-worker:8190
+      FLASHVSR_STATE_PATH: /flashvsr-state/compatibility.json
+      DETERMINISTIC_UPSCALE_WORKER_URL: http://realesrgan-worker:8191
+    volumes:
+      - "${H3_STUDIO_RUNTIME_DIR:?set H3_STUDIO_RUNTIME_DIR}/flashvsr-state:/flashvsr-state:ro"
+    ports:
+      - "127.0.0.1:${H3_STUDIO_APP_PORT:-5174}:5174"
+    networks:
+      - h3-studio-internal
+
+  realesrgan-worker:
+    build:
+      context: .
+      dockerfile: realesrgan_worker/Dockerfile
+      args:
+        COMFYUI_RUNTIME_IMAGE: ${H3_STUDIO_COMFY_IMAGE:?set H3_STUDIO_COMFY_IMAGE}
+    image: h3-studio-realesrgan:fresh-gb10
+    container_name: h3-studio-realesrgan
+    restart: unless-stopped
+    gpus: all
+    mem_limit: 6g
+    memswap_limit: 6g
+    environment:
+      REALESRGAN_MODEL_DIR: /models/RealESRGAN
+      REALESRGAN_STATE_DIR: /state
+      REALESRGAN_OUTPUT_ROOT: /comfy-output
+      REALESRGAN_WORK_DIR: /work
+    volumes:
+      - "${H3_STUDIO_DATA_DIR:?set H3_STUDIO_DATA_DIR}/output:/comfy-output"
+      - "${H3_STUDIO_RUNTIME_DIR:?set H3_STUDIO_RUNTIME_DIR}/realesrgan-models:/models/RealESRGAN:ro"
+      - "${H3_STUDIO_RUNTIME_DIR:?set H3_STUDIO_RUNTIME_DIR}/venv:/worker-venv:ro"
+      - "${H3_STUDIO_RUNTIME_DIR:?set H3_STUDIO_RUNTIME_DIR}/realesrgan-state:/state"
+      - "${H3_STUDIO_RUNTIME_DIR:?set H3_STUDIO_RUNTIME_DIR}/realesrgan-work:/work"
+    networks:
+      - h3-studio-internal
+
+  flashvsr-worker:
+    profiles: ["flashvsr"]
+    build:
+      context: .
+      dockerfile: flashvsr_worker/Dockerfile
+      args:
+        COMFYUI_RUNTIME_IMAGE: ${H3_STUDIO_COMFY_IMAGE:?set H3_STUDIO_COMFY_IMAGE}
+    image: h3-studio-flashvsr:fresh-gb10
+    container_name: h3-studio-flashvsr
+    restart: unless-stopped
+    gpus: all
+    mem_limit: 56g
+    memswap_limit: 56g
+    environment:
+      FLASHVSR_REPO: /opt/FlashVSR
+      FLASHVSR_MODEL_DIR: /models/FlashVSR
+      FLASHVSR_STATE_DIR: /state
+      FLASHVSR_OUTPUT_ROOT: /comfy-output
+      FLASHVSR_WORK_DIR: /work
+    volumes:
+      - "${H3_STUDIO_DATA_DIR:?set H3_STUDIO_DATA_DIR}/output:/comfy-output"
+      - "${H3_STUDIO_RUNTIME_DIR:?set H3_STUDIO_RUNTIME_DIR}/flashvsr-models:/models/FlashVSR:ro"
+      - "${H3_STUDIO_RUNTIME_DIR:?set H3_STUDIO_RUNTIME_DIR}/flashvsr-venv:/flashvsr-venv:ro"
+      - "${H3_STUDIO_RUNTIME_DIR:?set H3_STUDIO_RUNTIME_DIR}/flashvsr-state:/state"
+      - "${H3_STUDIO_RUNTIME_DIR:?set H3_STUDIO_RUNTIME_DIR}/flashvsr-work:/work"
+    networks:
+      - h3-studio-internal
+
+networks:
+  h3-studio-internal:
+    name: h3-studio-internal
+    driver: bridge

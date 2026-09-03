@@ -77,8 +77,10 @@ FlashVSR 的 worker 还会以固定提交构建源码依赖；`npm run deploy:gb
 
 | 镜像 / 文件 | 获取方式 | 说明 |
 | --- | --- | --- |
+| `ghcr.io/xiaofei-fei/h3-studio-gb10/comfy-runtime:gb10-v1` | 私有 GitHub Container Registry 包；先执行 `docker login ghcr.io`，并获得该包的读取权限。 | 全新 GB10 部署使用的 ComfyUI 运行时，包含固定的 ARM64 ComfyUI、venv 和自定义节点，**不含模型权重、输入、输出或凭据**。部署步骤见[全新 GB10 部署](fresh-gb10-deployment.md)。 |
+| `ghcr.io/xiaofei-fei/h3-studio-gb10/app:main` | 私有 GitHub Container Registry 包；与上项使用同一登录。 | H3 Studio 的 ARM64 应用镜像，由 GitHub Actions 在主分支更新时发布。 |
 | `node:22-bookworm-slim-linuxarm64` | [Node 官方镜像页](https://hub.docker.com/_/node)。本仓库 Dockerfile 使用的镜像引用为 `swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/node:22-bookworm-slim-linuxarm64`。 | 构建 `h3-studio:gb10` 时自动拉取；网络受限时可先执行 `docker pull` 预热。 |
-| `comfyui-gb10:v2` | **没有公开下载链接记录。** | 这是现有 GB10 ComfyUI 环境的本地基础镜像，FlashVSR 和 RealESRGAN worker 均以它为父镜像。迁移前应从原运行环境的受控镜像仓库或经授权的镜像导出中预置；不要换成普通 CUDA/Python 镜像。 |
+| `comfyui-gb10:v2` | **没有公开下载链接记录。** | 仅用于旧的已有 ComfyUI 部署，或制作 `comfy-runtime` 时作为受控基础镜像；全新部署不要求该镜像已存在。 |
 | `h3-studio:gb10`、`h3-studio-flashvsr:gb10`、`h3-studio-realesrgan:gb10` | 本仓库构建，不从远端 pull。 | 在 GB10 执行 `docker compose --env-file .env -f docker-compose.gb10.yml build`。 |
 | `cloudflared`（可选） | [Cloudflare 官方 Release](https://github.com/cloudflare/cloudflared/releases/latest)｜[Linux ARM64 直链](https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64)。 | 仅在启用 Cloudflare 隧道时需要。保存为 `bin/cloudflared` 并赋予可执行权限后，再构建 `docker-compose.cloudflared.yml` 中的本地镜像。 |
 

@@ -1,0 +1,24 @@
+# This Dockerfile is intentionally built only by scripts/publish-comfy-runtime-gb10.sh.
+# Its build context is a sanitized snapshot of a known-good GB10 runtime, never this repo.
+ARG COMFYUI_BASE_IMAGE=comfyui-gb10:v2
+FROM ${COMFYUI_BASE_IMAGE}
+
+ARG COMFYUI_COMMIT=unknown
+LABEL org.opencontainers.image.title="H3 Studio ComfyUI runtime" \
+      org.opencontainers.image.description="GB10 ComfyUI runtime without model weights or secrets" \
+      org.opencontainers.image.source="https://github.com/Xiaofei-fei/h3-studio-gb10" \
+      org.opencontainers.image.revision="${COMFYUI_COMMIT}"
+
+USER root
+
+# The base image provides the CUDA runtime only. This published image uses a
+# sealed direct entrypoint instead of the base image's installer/updater. The
+# publishing script rejects model files, .env files and secrets before COPY.
+# The NVIDIA base image's non-root ``ubuntu`` service account is uid/gid 1000.
+# Keep this stable across hosts; bootstrap fixes only bind-mounted data folders
+# to the same ownership and never changes model files.
+COPY --chown=1000:1000 ComfyUI /comfy/mnt/ComfyUI
+COPY --chown=1000:1000 venv /comfy/mnt/venv
+COPY --chmod=0755 docker/comfy-runtime-entrypoint.sh /usr/local/bin/h3-comfy-runtime-entrypoint
+
+ENTRYPOINT ["/usr/local/bin/h3-comfy-runtime-entrypoint"]

@@ -22,8 +22,9 @@ describe('GB10 Docker build resilience', () => {
     const workerDockerfile = readFileSync(resolve(process.cwd(), 'flashvsr_worker/Dockerfile'), 'utf8');
     const compose = readFileSync(resolve(process.cwd(), 'docker-compose.gb10.yml'), 'utf8');
 
-    expect(workerDockerfile).toContain('FROM comfyui-gb10:v2');
-    expect(workerDockerfile).toContain('CMD ["/flashvsr-venv/bin/python", "-m", "uvicorn"');
+    expect(workerDockerfile).toContain('ARG COMFYUI_RUNTIME_IMAGE=comfyui-gb10:v2');
+    expect(workerDockerfile).toContain('FROM ${COMFYUI_RUNTIME_IMAGE}');
+    expect(workerDockerfile).toContain('CMD ["/flashvsr-venv/bin/python", "-m", "uvicorn", "flashvsr_worker.app:app", "--host", "0.0.0.0"');
     expect(workerDockerfile).toContain('USER root\n\nCOPY flashvsr-sources');
     expect(workerDockerfile).toContain('cf910c61a60733e610e9c6e8b607f80c3a6c202b');
     expect(workerDockerfile).toContain('49d6c39e4dc0303442cda3bb758b3925d4399c49');
@@ -47,8 +48,9 @@ describe('GB10 Docker build resilience', () => {
     const workerDockerfile = readFileSync(resolve(process.cwd(), 'realesrgan_worker/Dockerfile'), 'utf8');
     const compose = readFileSync(resolve(process.cwd(), 'docker-compose.gb10.yml'), 'utf8');
 
-    expect(workerDockerfile).toContain('FROM comfyui-gb10:v2');
-    expect(workerDockerfile).toContain('CMD ["/worker-venv/bin/python", "-m", "uvicorn"');
+    expect(workerDockerfile).toContain('ARG COMFYUI_RUNTIME_IMAGE=comfyui-gb10:v2');
+    expect(workerDockerfile).toContain('FROM ${COMFYUI_RUNTIME_IMAGE}');
+    expect(workerDockerfile).toContain('CMD ["/worker-venv/bin/python", "-m", "uvicorn", "realesrgan_worker.app:app", "--host", "0.0.0.0"');
     expect(workerDockerfile).not.toContain('pip install');
     expect(compose).toContain('realesrgan-worker:');
     expect(compose).toContain('DETERMINISTIC_UPSCALE_WORKER_URL: http://127.0.0.1:8191');

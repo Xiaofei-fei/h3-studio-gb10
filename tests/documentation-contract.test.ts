@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 const docs = [
   'docs/getting-started.md',
   'docs/deployment-gb10.md',
+  'docs/fresh-gb10-deployment.md',
   'docs/architecture.md',
   'docs/optimization-guide.md',
   'docs/model-and-node-manifest.md',

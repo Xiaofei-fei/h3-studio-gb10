@@ -1,4 +1,5 @@
-FROM comfyui-gb10:v2
+ARG COMFYUI_RUNTIME_IMAGE=comfyui-gb10:v2
+FROM ${COMFYUI_RUNTIME_IMAGE}
 
 ARG FLASHVSR_COMMIT=cf910c61a60733e610e9c6e8b607f80c3a6c202b
 ARG BLOCK_SPARSE_COMMIT=49d6c39e4dc0303442cda3bb758b3925d4399c49
@@ -38,4 +39,4 @@ RUN tar -tzf /tmp/FlashVSR.tar.gz | grep -q "^FlashVSR-${FLASHVSR_COMMIT}/" \
 WORKDIR /opt/h3-studio
 COPY flashvsr_worker /opt/h3-studio/flashvsr_worker
 
-CMD ["/flashvsr-venv/bin/python", "-m", "uvicorn", "flashvsr_worker.app:app", "--host", "127.0.0.1", "--port", "8190"]
+CMD ["/flashvsr-venv/bin/python", "-m", "uvicorn", "flashvsr_worker.app:app", "--host", "0.0.0.0", "--port", "8190"]

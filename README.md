@@ -17,7 +17,7 @@ H3 Studio 是 MiniMax H3 的本地控制台：React 前端负责操作界面，N
 ## 运行前提
 
 - Node.js 22 或兼容的当前 LTS；npm。
-- 目标推理机具备 NVIDIA GB10、Docker Compose v2、NVIDIA 容器运行时和已运行的 ComfyUI。
+- 目标推理机具备 NVIDIA GB10、Docker Compose v2 与 NVIDIA 容器运行时。新机器可直接使用[全新 GB10 部署](docs/fresh-gb10-deployment.md)，不再要求预先运行 ComfyUI；旧的已有 ComfyUI 部署仍见下文与[GB10 部署](docs/deployment-gb10.md)。
 - 已从授权来源获得 H3、Music3、VAE、LoRA 与可选增强模型，并已安装所需 ComfyUI 节点。文件清单见 [模型与节点清单](docs/model-and-node-manifest.md)，下载入口、目标目录和镜像前置见[大文件下载与预置清单](docs/downloads.md)。
 - 从部署机到 GB10 的 SSH / rsync 访问；部署脚本不会传输模型或凭据。
 
@@ -51,10 +51,17 @@ npm run deploy:gb10
 
 `.env` 只留在本机；部署脚本会读取它并把必要变量传给远端 Compose。GB10 上有 Docker Compose 时，可使用 `--require-docker` 强制做 Compose 展开检查。
 
+从零开始的 GB10 不使用上述 SSH/已有 ComfyUI 路径。克隆仓库到 GB10 后，按[全新 GB10 部署](docs/fresh-gb10-deployment.md)创建 `.env.fresh` 并运行：
+
+```bash
+./scripts/bootstrap-fresh-gb10.sh --env .env.fresh
+```
+
 ## 文档导航
 
 - [开始使用](docs/getting-started.md)：本地开发、SSH 隧道、健康检查。
 - [GB10 部署](docs/deployment-gb10.md)：环境变量、部署生命周期、升级与回滚。
+- [全新 GB10 部署](docs/fresh-gb10-deployment.md)：仅有驱动和 Docker 时的一次性引导、验收与运行时镜像。
 - [系统架构](docs/architecture.md)：浏览器、BFF、ComfyUI、worker 和端口边界。
 - [推理优化](docs/optimization-guide.md)：三种模式的原理、互斥关系、质量与性能评估。
 - [模型与节点清单](docs/model-and-node-manifest.md)：外部依赖、能力协商和校验边界。

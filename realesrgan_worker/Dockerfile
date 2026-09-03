@@ -1,4 +1,5 @@
-FROM comfyui-gb10:v2
+ARG COMFYUI_RUNTIME_IMAGE=comfyui-gb10:v2
+FROM ${COMFYUI_RUNTIME_IMAGE}
 
 # The parent image normally starts ComfyUI. This small sidecar has no inherited
 # entrypoint and imports GPU packages only in a tracked child job process.
@@ -18,4 +19,4 @@ COPY realesrgan_worker /opt/h3-studio/realesrgan_worker
 
 # /worker-venv is a read-only mount of the existing private GB10 Python 3.12
 # runtime. This image deliberately performs no package installation or model download.
-CMD ["/worker-venv/bin/python", "-m", "uvicorn", "realesrgan_worker.app:app", "--host", "127.0.0.1", "--port", "8191"]
+CMD ["/worker-venv/bin/python", "-m", "uvicorn", "realesrgan_worker.app:app", "--host", "0.0.0.0", "--port", "8191"]

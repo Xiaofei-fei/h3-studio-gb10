@@ -8,7 +8,7 @@ function forbiddenPathReason(path) {
   if (/(?:^|\/)(?:models|model-staging|outputs|input|flashvsr-(?:venv|wheelhouse|sources|state|work)|realesrgan-(?:models|state|work))(?:\/|$)/.test(path)) {
     return 'runtime artifact';
   }
-  if (path === '.env' || (path.startsWith('.env.') && path !== '.env.example')) return 'private config';
+  if (path === '.env' || (path.startsWith('.env.') && path !== '.env.example' && path !== '.env.fresh.example')) return 'private config';
   if (/(?:^|\/)(?:\.secrets|\.playwright-cli|\.wrangler)(?:\/|$)/.test(path)) return 'private config';
   if (path === 'cloudflare-worker/wrangler.jsonc') return 'private config';
   if (/\.(?:mp4|mov|webm|mkv|wav|mp3|flac)$/i.test(path)) return 'generated media';

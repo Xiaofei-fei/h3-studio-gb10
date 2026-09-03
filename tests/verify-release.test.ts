@@ -10,5 +10,6 @@ describe('release safety verification', () => {
 
   it('allows the safe example environment file', () => {
     expect(verifyReleasePaths(['.env.example'])).toEqual([]);
+    expect(verifyReleasePaths(['.env.fresh.example'])).toEqual([]);
   });
 });

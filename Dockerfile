@@ -1,4 +1,6 @@
-FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/node:22-bookworm-slim-linuxarm64 AS build
+ARG NODE_IMAGE=swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/node:22-bookworm-slim-linuxarm64
+
+FROM ${NODE_IMAGE} AS build
 
 WORKDIR /app
 
@@ -11,7 +13,7 @@ COPY src ./src
 COPY server ./server
 RUN npm run build && npm prune --omit=dev
 
-FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/node:22-bookworm-slim-linuxarm64 AS runtime
+FROM ${NODE_IMAGE} AS runtime
 
 WORKDIR /app
 ENV NODE_ENV=production
