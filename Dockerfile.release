@@ -1,0 +1,12 @@
+FROM h3-studio:gb10
+
+USER root
+
+COPY package.json /tmp/h3-studio-package.json
+RUN node -e 'const fs = require("node:fs"); const current = JSON.parse(fs.readFileSync("/tmp/h3-studio-package.json", "utf8")); const base = JSON.parse(fs.readFileSync("/app/package.json", "utf8")); if (JSON.stringify(current.dependencies || {}) !== JSON.stringify(base.dependencies || {})) throw new Error("Release fallback requires unchanged runtime dependencies.");'
+
+COPY --chown=node:node package.json /app/package.json
+COPY --chown=node:node dist /app/dist
+COPY --chown=node:node server-dist /app/server-dist
+
+USER node

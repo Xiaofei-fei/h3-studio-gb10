@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "h3-studio-gateway",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": true,
+  "vpc_services": [
+    {
+      "binding": "H3_ORIGIN",
+      "service_id": "REPLACE_WITH_H3_STUDIO_VPC_SERVICE_ID",
+      "remote": true
+    }
+  ]
+}

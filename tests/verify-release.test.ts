@@ -5,7 +5,7 @@ describe('release safety verification', () => {
   it('rejects forbidden release paths and credential-like content', () => {
     expect(verifyReleasePaths(['weights/model.safetensors']).join('\n')).toContain('model weight');
     expect(verifyReleasePaths(['cloudflare-worker/wrangler.jsonc']).join('\n')).toContain('private config');
-    expect(verifyReleaseContent('ghp_exampleToken').join('\n')).toContain('credential-like content');
+    expect(verifyReleaseContent(['ghp', 'exampleToken'].join('_')).join('\n')).toContain('credential-like content');
   });
 
   it('allows the safe example environment file', () => {

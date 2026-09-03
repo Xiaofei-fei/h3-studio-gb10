@@ -1,0 +1,5 @@
+fastapi==0.115.12
+# The Worker is a production loopback API: reload support from the ``standard``
+# extra is unnecessary and unavailable in the checked GB10 offline wheelhouse.
+uvicorn==0.34.2
+modelscope==1.39.1

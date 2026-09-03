@@ -1,0 +1,34 @@
+services:
+  doh-dns:
+    build:
+      context: .
+      dockerfile: cloudflare-connector/DohDns.Dockerfile
+    image: h3-doh-dns:2026.09.01
+    container_name: h3-studio-doh-dns
+    network_mode: host
+    restart: unless-stopped
+    user: "0:0"
+    environment:
+      DNS_PROXY_URL: http://127.0.0.1:7890
+      DOH_URL: https://cloudflare-dns.com/dns-query
+
+  cloudflared:
+    build:
+      context: .
+      dockerfile: cloudflare-connector/Dockerfile
+    image: h3-cloudflared:2026.8.3
+    container_name: h3-studio-cloudflared
+    network_mode: host
+    restart: unless-stopped
+    env_file:
+      - .secrets/cloudflared.env
+    environment:
+      HTTP_PROXY: http://127.0.0.1:7890
+      HTTPS_PROXY: http://127.0.0.1:7890
+      ALL_PROXY: http://127.0.0.1:7890
+      NO_PROXY: 127.0.0.1,localhost
+    volumes:
+      - ./cloudflare-connector/cloudflared-resolv.conf:/etc/resolv.conf:ro
+    depends_on:
+      - doh-dns
+    command: ["tunnel", "--no-autoupdate", "--protocol", "http2", "--edge-ip-version", "4", "run"]

@@ -1,0 +1,6 @@
+# The sidecar deliberately reuses GB10's verified private Python 3.12 runtime.
+# These are runtime expectations, not Docker build-time install instructions.
+fastapi==0.115.12
+uvicorn==0.34.2
+spandrel==0.4.2
+av
