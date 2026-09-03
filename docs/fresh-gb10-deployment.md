@@ -58,6 +58,7 @@ cp .env.fresh.example .env.fresh
 脚本依次验证 GPU 容器访问、拉取私有镜像、从运行时镜像提取 worker 所需的 venv、从魔搭下载核心模型、下载 TAEH3 和 RealESRGAN、构建 worker、启动服务并验收节点和能力。成功后界面仅绑定在本机：`http://127.0.0.1:5174`。
 
 若模型已经由管理员预置，使用 `--skip-model-download`；脚本会在启动前逐个检查所需文件，缺失时直接退出而不会产生半可用服务。
+镜像和模型均已预置时，后续结构验收只在现有容器的桥接网络内请求服务，不会为检查额外拉取 Docker Hub 工具镜像。
 
 ## FastH3 与离线传输
 
@@ -100,7 +101,7 @@ docker compose --env-file .env.fresh -f docker-compose.fresh-gb10.yml down
 
 ## 运行时镜像发布
 
-`ghcr.io/xiaofei-fei/h3-studio-gb10/comfy-runtime:gb10-v1` 由一个已验证的 GB10 运行环境制作，包含 ComfyUI 代码、Python venv 和节点实现，不含模型、输入、输出、`.env`、Git 历史或 secret 文件。镜像直接启动已验证的 ComfyUI 与 venv，不运行基础镜像内会更新代码或 Python 包的安装脚本。发布脚本会在 Docker build 前再次拒绝 `.safetensors`、`.ckpt`、`.pth`、`.pt`、`.onnx` 和敏感文件名。
+`ghcr.io/xiaofei-fei/h3-studio-gb10/comfy-runtime:gb10-v1` 由一个已验证的 GB10 运行环境制作，包含 ComfyUI 代码、Python venv、节点实现，以及 RealESRGAN worker 所需的 FastAPI/Uvicorn 控制面依赖；不含模型、输入、输出、`.env`、Git 历史或 secret 文件。镜像直接启动已验证的 ComfyUI 与 venv，不运行基础镜像内会更新代码或 Python 包的安装脚本。发布脚本会在 Docker build 前再次拒绝 `.safetensors`、`.ckpt`、`.pth`、`.pt`、`.onnx` 和敏感文件名。
 
 只有维护运行时的管理员才执行以下命令；先用 `--no-push` 在隔离标签上检查，再推送 GHCR：
 
@@ -112,3 +113,5 @@ docker compose --env-file .env.fresh -f docker-compose.fresh-gb10.yml down
 ```
 
 确认本地容器能启动且节点齐全后，移除 `--no-push` 才会上传。应用镜像由 GitHub Actions 自动发布为 ARM64 `app:main`；运行时镜像发布仍需要 GB10 原生环境，避免把 GPU/Python 环境差异隐藏在跨架构构建里。
+
+若发布机只能通过本机代理访问 PyPI，可显式传入标准代理环境变量并使用主机网络，例如 `HTTP_PROXY=http://127.0.0.1:7890 HTTPS_PROXY=http://127.0.0.1:7890 ./scripts/publish-comfy-runtime-gb10.sh --source /path/to/runtime --build-network host --no-push`。该网络设置只用于发布时安装 worker 控制面依赖，不会写入最终镜像。

@@ -21,4 +21,16 @@ COPY --chown=1000:1000 ComfyUI /comfy/mnt/ComfyUI
 COPY --chown=1000:1000 venv /comfy/mnt/venv
 COPY --chmod=0755 docker/comfy-runtime-entrypoint.sh /usr/local/bin/h3-comfy-runtime-entrypoint
 
+# The deterministic RealESRGAN sidecar deliberately reuses this ABI-compatible
+# Python environment. Keep the two control-plane pins aligned with
+# realesrgan_worker/requirements.txt; CUDA, Torch, models and all generated
+# media remain outside the image.
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY
+RUN /comfy/mnt/venv/bin/python -m pip install --no-cache-dir \
+      'fastapi==0.115.12' \
+      'uvicorn[standard]==0.34.2' \
+    && /comfy/mnt/venv/bin/python -c 'import fastapi, uvicorn'
+
 ENTRYPOINT ["/usr/local/bin/h3-comfy-runtime-entrypoint"]

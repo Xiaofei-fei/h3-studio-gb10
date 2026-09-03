@@ -54,10 +54,14 @@ describe('fresh GB10 deployment contract', () => {
     expect(script).toContain('.env');
     expect(script).toContain('docker push');
     expect(script).toContain('comfy-runtime');
+    expect(script).toContain('--warning=no-file-changed');
 
     const runtimeDockerfile = source('Dockerfile.comfy-runtime');
     expect(runtimeDockerfile).toContain('ENTRYPOINT ["/usr/local/bin/h3-comfy-runtime-entrypoint"]');
     expect(runtimeDockerfile).toContain('COPY --chmod=0755 docker/comfy-runtime-entrypoint.sh');
+    expect(runtimeDockerfile).toContain("'fastapi==0.115.12'");
+    expect(runtimeDockerfile).toContain("'uvicorn[standard]==0.34.2'");
+    expect(script).toContain('--build-network');
   });
 
   it('publishes the application image as linux/arm64 to GHCR', () => {
@@ -70,6 +74,13 @@ describe('fresh GB10 deployment contract', () => {
     expect(workflow).toContain('docker/build-push-action@v6');
     expect(workflow).toContain('platforms: linux/arm64');
     expect(workflow).toContain('ghcr.io/xiaofei-fei/h3-studio-gb10/app');
+  });
+
+  it('verifies a preloaded deployment through the existing bridge network without another image pull', () => {
+    const script = source('scripts/verify-fresh-gb10.sh');
+    expect(script).toContain('compose exec -T h3-studio node -e');
+    expect(script).toContain('http://comfyui:8188');
+    expect(script).not.toContain('curlimages/curl');
   });
 
   it('keeps model weights and local credentials out of every Docker build context', () => {

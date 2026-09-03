@@ -36,15 +36,41 @@ load_environment() {
   done < "$file"
 }
 
+compose() {
+  docker compose --env-file "$ENV_FILE" -f "$REPO_DIR/docker-compose.fresh-gb10.yml" "$@"
+}
+
+# Use the already-published Node application as a tiny internal HTTP client.
+# This keeps a model-preloaded/offline install self-contained: the verifier no
+# longer pulls a disposable curl image from Docker Hub just to contact local
+# services. The application is attached to the same bridge network as ComfyUI.
+request_from_app() {
+  local url="$1"
+  compose exec -T h3-studio node -e '
+    const url = process.argv[1];
+    fetch(url)
+      .then(async (response) => {
+        const body = await response.text();
+        if (!response.ok) {
+          process.stderr.write(body);
+          process.exitCode = 1;
+          return;
+        }
+        process.stdout.write(body);
+      })
+      .catch((error) => {
+        process.stderr.write(String(error));
+        process.exitCode = 1;
+      });
+  ' "$url"
+}
+
 request() {
-  local path="$1"
-  docker run --rm --network host curlimages/curl:8.12.1 \
-    -fsS --connect-timeout 3 --max-time 10 "http://127.0.0.1:${H3_STUDIO_COMFY_PORT}${path}"
+  request_from_app "http://comfyui:8188$1"
 }
 
 request_app() {
-  docker run --rm --network host curlimages/curl:8.12.1 \
-    -fsS --connect-timeout 3 --max-time 10 "http://127.0.0.1:${H3_STUDIO_APP_PORT}/api/health"
+  request_from_app 'http://127.0.0.1:5174/api/health'
 }
 
 expect_contains() {
@@ -59,7 +85,7 @@ wait_for_comfy() {
     [[ -n "$response" ]] && { printf '%s' "$response"; return; }
     sleep 2
   done
-  docker compose --env-file "$ENV_FILE" -f "$REPO_DIR/docker-compose.fresh-gb10.yml" logs --tail=120 comfyui >&2 || true
+  compose logs --tail=120 comfyui >&2 || true
   die 'ComfyUI 在 120 秒内未就绪。'
 }
 
@@ -70,7 +96,7 @@ wait_for_app() {
     [[ -n "$response" ]] && { printf '%s' "$response"; return; }
     sleep 2
   done
-  docker compose --env-file "$ENV_FILE" -f "$REPO_DIR/docker-compose.fresh-gb10.yml" logs --tail=120 h3-studio >&2 || true
+  compose logs --tail=120 h3-studio >&2 || true
   die 'H3 Studio 在 90 秒内未就绪。'
 }
 
@@ -92,7 +118,7 @@ done
 ENV_FILE="$(cd -- "$(dirname -- "$ENV_FILE")" && pwd)/$(basename -- "$ENV_FILE")"
 load_environment "$ENV_FILE"
 command -v docker >/dev/null || die '未找到 Docker。'
-docker compose --env-file "$ENV_FILE" -f "$REPO_DIR/docker-compose.fresh-gb10.yml" ps
+compose ps
 
 system_stats="$(wait_for_comfy)"
 object_info="$(request /object_info)"

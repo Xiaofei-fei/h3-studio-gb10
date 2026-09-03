@@ -12,6 +12,7 @@ SOURCE_DIR=""
 IMAGE="ghcr.io/xiaofei-fei/h3-studio-gb10/comfy-runtime:gb10-v1"
 BASE_IMAGE="comfyui-gb10:v2"
 PUSH_IMAGE=1
+BUILD_NETWORK=default
 
 usage() {
   cat <<'EOF'
@@ -21,6 +22,7 @@ Options:
   --source DIR       Existing GB10 runtime root containing ComfyUI/ and venv/.
   --image IMAGE      GHCR tag to build (default: .../comfy-runtime:gb10-v1).
   --base-image IMG   Existing GB10 base image (default: comfyui-gb10:v2).
+  --build-network N  Docker build network: default or host (default: default).
   --no-push          Build and inspect locally, but do not publish.
   -h, --help         Show this help.
 
@@ -47,6 +49,8 @@ validate_source() {
       || die '未使用 --no-push 时，--image 必须是带 tag 的 ghcr.io 镜像引用。'
   fi
   [[ "$BASE_IMAGE" =~ ^[A-Za-z0-9./:_-]+$ ]] || die '--base-image 不是安全的镜像引用。'
+  [[ "$BUILD_NETWORK" == default || "$BUILD_NETWORK" == host ]] \
+    || die '--build-network 只支持 default 或 host。'
 }
 
 contains_forbidden_file() {
@@ -78,7 +82,10 @@ stage_runtime() {
   local stage="$1"
   # tar preserves symlinks, permissions and Python package metadata while the
   # explicit exclusions stop common live data from ever entering the context.
-  tar -C "$SOURCE_DIR" \
+  # ComfyUI may update a directory mtime while its long-running process is
+  # serving requests.  Suppress only GNU tar's non-content "file changed"
+  # warning; real read failures still stop this pipe because of ``pipefail``.
+  tar --warning=no-file-changed -C "$SOURCE_DIR" \
     --exclude='ComfyUI/.git' \
     --exclude='ComfyUI/.git/*' \
     --exclude='ComfyUI/.env' \
@@ -122,6 +129,11 @@ while (( $# > 0 )); do
       BASE_IMAGE="$2"
       shift 2
       ;;
+    --build-network)
+      [[ $# -ge 2 ]] || die '--build-network 需要 default 或 host。'
+      BUILD_NETWORK="$2"
+      shift 2
+      ;;
     --no-push)
       PUSH_IMAGE=0
       shift
@@ -149,6 +161,7 @@ reject_sensitive_material "$stage_dir"
 comfy_commit="$(git -C "$SOURCE_DIR/ComfyUI" rev-parse HEAD 2>/dev/null || printf unknown)"
 
 docker build \
+  --network "$BUILD_NETWORK" \
   --file "$REPO_DIR/Dockerfile.comfy-runtime" \
   --build-arg "COMFYUI_BASE_IMAGE=$BASE_IMAGE" \
   --build-arg "COMFYUI_COMMIT=$comfy_commit" \
