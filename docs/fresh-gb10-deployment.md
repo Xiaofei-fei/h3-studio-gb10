@@ -33,7 +33,7 @@
 docker login ghcr.io
 ```
 
-登录 token 需要读取该私有包的权限；不要把 token 写进 `.env.fresh`、shell 历史或仓库。
+登录 token 需要 `read:packages` 权限；制作并推送 `comfy-runtime` 的维护账号还需要 `write:packages`。若使用 GitHub CLI 管理当前登录，可在有用户确认的终端中执行 `gh auth refresh -s read:packages -s write:packages` 追加权限。不要把 token 写进 `.env.fresh`、shell 历史或仓库。
 
 5. 确认模型许可证允许下载与使用。引导脚本使用魔搭下载公开模型；若网络受限，可先在其他机器下载并传入同样的目录结构。
 
