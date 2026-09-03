@@ -30,3 +30,10 @@ cloudflare-worker/.wrangler/
 *.ckpt
 *.pth
 *.pt
+
+# Keep only the approved portable design records. Other entries are local
+# experiment notes and may contain machine-specific operational history.
+docs/superpowers/plans/*
+!docs/superpowers/plans/2026-09-03-h3-studio-portable-github.md
+docs/superpowers/specs/*
+!docs/superpowers/specs/2026-09-03-h3-studio-portable-github-design.md

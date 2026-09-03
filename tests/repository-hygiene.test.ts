@@ -23,6 +23,10 @@ describe('portable repository hygiene', () => {
       expect(gitignore).toContain(entry);
     }
     expect(gitignore).not.toMatch(/^docs\/?$/m);
+    expect(gitignore).toContain('docs/superpowers/plans/*');
+    expect(gitignore).toContain('!docs/superpowers/plans/2026-09-03-h3-studio-portable-github.md');
+    expect(gitignore).toContain('docs/superpowers/specs/*');
+    expect(gitignore).toContain('!docs/superpowers/specs/2026-09-03-h3-studio-portable-github-design.md');
     expect(dockerignore).toMatch(/^\.playwright-cli\/?$/m);
     expect(dockerignore).toContain('cloudflare-worker/wrangler.jsonc');
   });
