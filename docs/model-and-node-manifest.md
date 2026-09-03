@@ -1,6 +1,6 @@
 # 模型与节点清单
 
-所有权重均为外部依赖，不随本仓库分发。机器管理员应从已授权来源获取文件、核验来源提供的 checksum，并遵守对应许可证。可机器读取的元数据在 [`config/model-manifest.yaml`](../config/model-manifest.yaml)。
+所有权重均为外部依赖，不随本仓库分发。机器管理员应从已授权来源获取文件、核验来源提供的 checksum，并遵守对应许可证。文件级下载入口、安装目录、镜像前置和离线传输说明见[大文件下载与预置清单](downloads.md)；可机器读取的元数据在 [`config/model-manifest.yaml`](../config/model-manifest.yaml)。
 
 ## 模型文件
 

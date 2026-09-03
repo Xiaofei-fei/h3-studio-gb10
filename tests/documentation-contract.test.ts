@@ -8,6 +8,7 @@ const docs = [
   'docs/architecture.md',
   'docs/optimization-guide.md',
   'docs/model-and-node-manifest.md',
+  'docs/downloads.md',
   'docs/upscale.md',
   'docs/troubleshooting.md',
   'docs/security-and-secrets.md',

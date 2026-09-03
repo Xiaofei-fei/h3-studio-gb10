@@ -18,7 +18,7 @@ H3 Studio 是 MiniMax H3 的本地控制台：React 前端负责操作界面，N
 
 - Node.js 22 或兼容的当前 LTS；npm。
 - 目标推理机具备 NVIDIA GB10、Docker Compose v2、NVIDIA 容器运行时和已运行的 ComfyUI。
-- 已从授权来源获得 H3、Music3、VAE、LoRA 与可选增强模型，并已安装所需 ComfyUI 节点。文件清单见 [模型与节点清单](docs/model-and-node-manifest.md)。
+- 已从授权来源获得 H3、Music3、VAE、LoRA 与可选增强模型，并已安装所需 ComfyUI 节点。文件清单见 [模型与节点清单](docs/model-and-node-manifest.md)，下载入口、目标目录和镜像前置见[大文件下载与预置清单](docs/downloads.md)。
 - 从部署机到 GB10 的 SSH / rsync 访问；部署脚本不会传输模型或凭据。
 
 ## 快速开始
@@ -58,6 +58,7 @@ npm run deploy:gb10
 - [系统架构](docs/architecture.md)：浏览器、BFF、ComfyUI、worker 和端口边界。
 - [推理优化](docs/optimization-guide.md)：三种模式的原理、互斥关系、质量与性能评估。
 - [模型与节点清单](docs/model-and-node-manifest.md)：外部依赖、能力协商和校验边界。
+- [大文件下载与预置](docs/downloads.md)：H3、Music3、LoRA、VAE、增强模型、镜像与 FlashVSR 源码的下载入口。
 - [视频增强](docs/upscale.md)：历史视频、RealESRGAN 2K、FlashVSR 与停止任务。
 - [故障排查](docs/troubleshooting.md)：健康检查、节点、模型、GPU、worker 与取消任务。
 - [安全与凭据](docs/security-and-secrets.md)：忽略规则、发布扫描、GitHub/Cloudflare 操作边界。

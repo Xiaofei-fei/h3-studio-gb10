@@ -6,7 +6,7 @@
 
 1. GB10 已安装 Docker、Docker Compose v2 与 NVIDIA 容器运行时。
 2. ComfyUI 已在 GB10 loopback 的 `8188` 端口可访问，且对应容器名与自定义节点目录已知。
-3. H3/Music3 权重、LoRA、VAE 和需要的 ComfyUI 节点已按授权条款安装。见[模型与节点清单](model-and-node-manifest.md)。
+3. H3/Music3 权重、LoRA、VAE 和需要的 ComfyUI 节点已按授权条款安装。文件名、下载入口、目标目录和镜像前置见[大文件下载与预置清单](downloads.md)；能力边界见[模型与节点清单](model-and-node-manifest.md)。
 4. 部署源机器可通过 SSH 和 rsync 访问 GB10。
 5. ComfyUI 队列为空。若 TAEH3 节点版本需要更新，部署会重启配置的 ComfyUI 容器。
 
