@@ -169,7 +169,7 @@ describe('H3 Studio primary screen', () => {
     expect(adaGemm).toBeChecked();
   });
 
-  it('switches to FastH3 VSA manual optimization controls without a profile selector', async () => {
+  it('uses the same compact optimization picker for FastH3 VSA switches', async () => {
     const user = userEvent.setup();
     const submitted: unknown[] = [];
     const fastApi: StudioApi = {
@@ -182,6 +182,7 @@ describe('H3 Studio primary screen', () => {
           h3StandardCublasInt8: { available: true },
           fastH3Vsa: { available: true },
           fastH3CublasInt8: { available: true },
+          fastH3FusedModulation: { available: true },
           fastH3VaeTileBatch: { available: true },
         },
       }),
@@ -216,8 +217,16 @@ describe('H3 Studio primary screen', () => {
     expect(scoped.queryByRole('checkbox', { name: 'SpargeAttention' })).not.toBeInTheDocument();
     expect(scoped.queryByText('FastH3 推理档位')).not.toBeInTheDocument();
 
-    await user.click(scoped.getByRole('checkbox', { name: 'GB10 cuBLAS INT8' }));
-    await user.click(scoped.getByRole('checkbox', { name: 'FastH3 VAE Tile Batch · batch 4' }));
+    const picker = scoped.getByRole('region', { name: '推理优化' });
+    const configure = within(picker).getByRole('button', { name: /配置/ });
+    expect(configure).toHaveAttribute('aria-expanded', 'false');
+    await user.click(configure);
+
+    const kernelGroup = within(picker).getByRole('radiogroup', { name: '计算内核' });
+    await user.click(within(kernelGroup).getByRole('radio', { name: 'GB10 cuBLAS INT8' }));
+    await user.click(within(picker).getByRole('checkbox', { name: 'FastH3 Fused Modulation' }));
+    const vaeGroup = within(picker).getByRole('radiogroup', { name: '视频 VAE 解码' });
+    await user.click(within(vaeGroup).getByRole('radio', { name: 'FastH3 VAE Tile Batch · batch 2' }));
     await user.type(scoped.getByLabelText(/创作描述/), 'A cinematic cup of coffee with gentle steam');
     await user.click(scoped.getByRole('button', { name: '生成视频' }));
 
@@ -225,7 +234,9 @@ describe('H3 Studio primary screen', () => {
     expect(submitted[0]).toMatchObject({
       service: 'fasth3_vsa',
       fastH3CublasInt8: true,
+      fastH3FusedModulation: true,
       fastH3VaeTileBatch: true,
+      fastH3VaeTileBatchSize: 2,
       steps: 4,
       samplerName: 'euler',
     });
@@ -271,8 +282,11 @@ describe('H3 Studio primary screen', () => {
 
     await user.click(scoped.getByRole('button', { name: 'FastH3 VSA' }));
     await user.click(scoped.getByRole('button', { name: /精细设置/i }));
-    const cublasSwitch = scoped.getByRole('checkbox', { name: 'GB10 cuBLAS INT8' });
-    const adaGemmSwitch = scoped.getByRole('checkbox', { name: 'AdaGEMM INT8（实验性）' });
+    const picker = scoped.getByRole('region', { name: '推理优化' });
+    await user.click(within(picker).getByRole('button', { name: /配置/ }));
+    const kernelGroup = within(picker).getByRole('radiogroup', { name: '计算内核' });
+    const cublasSwitch = within(kernelGroup).getByRole('radio', { name: 'GB10 cuBLAS INT8' });
+    const adaGemmSwitch = within(kernelGroup).getByRole('radio', { name: 'AdaGEMM INT8（实验性）' });
     await waitFor(() => expect(adaGemmSwitch).toBeEnabled());
 
     await user.click(cublasSwitch);

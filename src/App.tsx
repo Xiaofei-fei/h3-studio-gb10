@@ -56,6 +56,7 @@ export function App({ api = studioApi }: AppProps) {
         vaeTileBatch: false,
         h3StandardCublasInt8: false,
         h3StandardAdaGemmInt8: false,
+        fastH3FusedModulation: false,
         inputMode: 'text',
       };
     }
@@ -77,7 +78,9 @@ export function App({ api = studioApi }: AppProps) {
         h3StandardAdaGemmInt8: false,
         fastH3CublasInt8: false,
         fastH3AdaGemmInt8: false,
+        fastH3FusedModulation: false,
         fastH3VaeTileBatch: false,
+        fastH3VaeTileBatchSize: undefined,
         taeH3Preview: false,
       };
     }
@@ -97,7 +100,9 @@ export function App({ api = studioApi }: AppProps) {
         vaeTileBatch: false,
         fastH3CublasInt8: false,
         fastH3AdaGemmInt8: false,
+        fastH3FusedModulation: false,
         fastH3VaeTileBatch: false,
+        fastH3VaeTileBatchSize: undefined,
       };
     }
     if (current.service === 'fasth3_vsa') {
@@ -143,7 +148,9 @@ export function App({ api = studioApi }: AppProps) {
       h3StandardAdaGemmInt8: job.h3StandardAdaGemmInt8 === true,
       fastH3CublasInt8: job.fastH3CublasInt8 === true,
       fastH3AdaGemmInt8: job.fastH3AdaGemmInt8 === true,
+      fastH3FusedModulation: job.fastH3FusedModulation === true,
       fastH3VaeTileBatch: job.fastH3VaeTileBatch === true,
+      fastH3VaeTileBatchSize: job.fastH3VaeTileBatchSize,
       taeH3Preview: job.taeH3Preview === true,
       inputMode: job.inputMode || 'text',
       firstFrame: job.firstFrame,

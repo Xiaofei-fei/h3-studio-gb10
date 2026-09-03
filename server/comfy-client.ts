@@ -58,6 +58,7 @@ export class HttpComfyClient implements ComfyClient {
         loraLoader,
         cublasInt8,
         adaGemmInt8,
+        fusedModulation,
         vaeDecodeBatched,
         taePreviewOverride,
         taePreviewLoader,
@@ -81,6 +82,7 @@ export class HttpComfyClient implements ComfyClient {
         this.objectInfo('LoraLoaderModelOnly'),
         this.objectInfo('MiniMaxH3GB10CublasInt8'),
         this.objectInfo('MiniMaxH3GB10AdaGemmInt8'),
+        this.objectInfo('MiniMaxH3FusedModulation'),
         this.objectInfo('MiniMaxH3VAEDecodeBatched'),
         this.objectInfo('MiniMaxH3PreviewOverride'),
         this.objectInfo('H3StudioTAEH3PreviewLoader'),
@@ -109,6 +111,7 @@ export class HttpComfyClient implements ComfyClient {
           loraLoader,
           cublasInt8,
           adaGemmInt8,
+          fusedModulation,
           vaeDecodeBatched,
           taePreviewOverride,
           taePreviewLoader,
@@ -322,6 +325,7 @@ interface CapabilityObjectInfo {
   loraLoader: Record<string, unknown> | null;
   cublasInt8: Record<string, unknown> | null;
   adaGemmInt8: Record<string, unknown> | null;
+  fusedModulation: Record<string, unknown> | null;
   vaeDecodeBatched: Record<string, unknown> | null;
   taePreviewOverride: Record<string, unknown> | null;
   taePreviewLoader: Record<string, unknown> | null;
@@ -352,6 +356,7 @@ function detectServiceCapabilities(info: CapabilityObjectInfo): ComfyServiceCapa
     loraLoader,
     cublasInt8,
     adaGemmInt8,
+    fusedModulation,
     vaeDecodeBatched,
     taePreviewOverride,
     taePreviewLoader,
@@ -435,6 +440,9 @@ function detectServiceCapabilities(info: CapabilityObjectInfo): ComfyServiceCapa
     fastH3AdaGemmInt8: hasAdaGemmInt8
       ? { available: true }
       : { available: false, reason: '未检测到 MiniMaxH3GB10AdaGemmInt8 节点。' },
+    fastH3FusedModulation: fusedModulation?.MiniMaxH3FusedModulation
+      ? { available: true }
+      : { available: false, reason: '未检测到 MiniMaxH3FusedModulation 节点。' },
     fastH3VaeTileBatch: vaeDecodeBatched?.MiniMaxH3VAEDecodeBatched
       ? { available: true }
       : { available: false, reason: '未检测到 MiniMaxH3VAEDecodeBatched 节点。' },

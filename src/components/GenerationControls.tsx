@@ -102,21 +102,169 @@ function TAEH3PreviewToggle({
   );
 }
 
+function FastH3OptimizationPicker({
+  form,
+  services,
+  onChange,
+}: Pick<GenerationControlsProps, 'form' | 'services' | 'onChange'>) {
+  const [isOpen, setIsOpen] = useState(false);
+  const cublasCapability = services?.fastH3CublasInt8;
+  const adaGemmCapability = services?.fastH3AdaGemmInt8;
+  const fusedCapability = services?.fastH3FusedModulation;
+  const vaeCapability = services?.fastH3VaeTileBatch;
+  const cublasAvailable = cublasCapability?.available === true;
+  const adaGemmAvailable = adaGemmCapability?.available === true;
+  const fusedAvailable = fusedCapability?.available === true;
+  const vaeAvailable = vaeCapability?.available === true;
+  const vaeBatch = form.fastH3VaeTileBatch ? form.fastH3VaeTileBatchSize ?? 4 : undefined;
+  const activeCount = [
+    form.fastH3CublasInt8 || form.fastH3AdaGemmInt8,
+    form.fastH3FusedModulation,
+    vaeBatch !== undefined,
+  ].filter(Boolean).length;
+  const compactSummary = [
+    form.fastH3AdaGemmInt8 ? 'AdaGEMM INT8' : form.fastH3CublasInt8 ? 'cuBLAS INT8' : undefined,
+    form.fastH3FusedModulation ? 'Fused Modulation' : undefined,
+    vaeBatch !== undefined ? `VAE Tile Batch · ${vaeBatch}` : undefined,
+  ].filter((item): item is string => Boolean(item)).slice(0, 2).join(' · ');
+  const status = `FastH3 VSA${form.fastH3AdaGemmInt8 ? ' + AdaGEMM INT8（实验性）' : form.fastH3CublasInt8 ? ' + GB10 cuBLAS INT8' : ''}${
+    form.fastH3FusedModulation ? ' + Fused Modulation' : ''
+  }${vaeBatch !== undefined ? ` + VAE Tile Batch ${vaeBatch}` : ''}`;
+
+  return (
+    <section className={`standard-optimization-picker ${isOpen ? 'is-open' : ''}`} aria-label="推理优化">
+      <button
+        type="button"
+        className="standard-optimization-trigger"
+        aria-expanded={isOpen}
+        aria-controls="fasth3-optimization-options"
+        onClick={() => setIsOpen((current) => !current)}
+      >
+        <span className="standard-optimization-trigger-copy">
+          <strong>推理优化</strong>
+          <small>{compactSummary || 'VSA 基线'}</small>
+        </span>
+        <span className={`optimization-count ${activeCount > 0 ? 'is-active' : ''}`}>{activeCount > 0 ? `${activeCount} 项已启用` : '基线'}</span>
+        <span className="standard-optimization-configure">配置 <i aria-hidden="true">⌄</i></span>
+      </button>
+
+      {isOpen && (
+        <div id="fasth3-optimization-options" className="standard-optimization-options">
+          <div className="standard-optimization-groups">
+            <section className="optimization-picker-group">
+              <div className="optimization-picker-heading">
+                <strong>计算内核</strong>
+                <small>三选一；INT8 可做 A/B</small>
+              </div>
+              <div className="kernel-choice-list" role="radiogroup" aria-label="计算内核">
+                <label className="kernel-choice">
+                  <input
+                    type="radio"
+                    name="fasth3-kernel"
+                    aria-label="默认计算（FP16/BF16）"
+                    checked={!form.fastH3CublasInt8 && !form.fastH3AdaGemmInt8}
+                    onChange={() => onChange({ fastH3CublasInt8: false, fastH3AdaGemmInt8: false })}
+                  />
+                  <span className="kernel-choice-mark" aria-hidden="true" />
+                  <span><strong>默认计算</strong><small>VSA 的稳定基线</small></span>
+                </label>
+                <label className="kernel-choice">
+                  <input
+                    type="radio"
+                    name="fasth3-kernel"
+                    aria-label="GB10 cuBLAS INT8"
+                    checked={form.fastH3CublasInt8}
+                    disabled={!cublasAvailable}
+                    onChange={() => onChange({ fastH3CublasInt8: true })}
+                  />
+                  <span className="kernel-choice-mark" aria-hidden="true" />
+                  <span><strong>GB10 cuBLAS INT8</strong><small>{cublasCapability?.reason || 'QKV、输出投影与 MLP 加速'}</small></span>
+                </label>
+                <label className="kernel-choice">
+                  <input
+                    type="radio"
+                    name="fasth3-kernel"
+                    aria-label="AdaGEMM INT8（实验性）"
+                    checked={form.fastH3AdaGemmInt8}
+                    disabled={!adaGemmAvailable}
+                    onChange={() => onChange({ fastH3AdaGemmInt8: true })}
+                  />
+                  <span className="kernel-choice-mark" aria-hidden="true" />
+                  <span><strong>AdaGEMM INT8 <em>实验性</em></strong><small>{adaGemmCapability?.reason || '融合 QKV、输出投影与 FC1；不保证逐像素一致'}</small></span>
+                </label>
+              </div>
+            </section>
+
+            <section className="optimization-picker-group">
+              <div className="optimization-picker-heading">
+                <strong>模型调制</strong>
+                <small>与 VSA 独立，可单独 A/B</small>
+              </div>
+              <label className="feature-cache-control compact-optimization-choice">
+                <input
+                  type="checkbox"
+                  aria-label="FastH3 Fused Modulation"
+                  checked={form.fastH3FusedModulation === true}
+                  disabled={!fusedAvailable}
+                  onChange={(event) => onChange({ fastH3FusedModulation: event.target.checked })}
+                />
+                <span className="feature-cache-track" aria-hidden="true"><i /></span>
+                <span className="feature-cache-copy">
+                  <strong>Fused Modulation</strong>
+                  <small>{fusedCapability?.reason || '融合 AdaLN 调制与门控残差；请保留同 seed A/B 验证。'}</small>
+                </span>
+              </label>
+            </section>
+
+            <section className="optimization-picker-group">
+              <div className="optimization-picker-heading">
+                <strong>视频 VAE 解码</strong>
+                <small>batch 越大，显存峰值越高</small>
+              </div>
+              <div className="kernel-choice-list" role="radiogroup" aria-label="视频 VAE 解码">
+                <label className="kernel-choice">
+                  <input
+                    type="radio"
+                    name="fasth3-vae-batch"
+                    aria-label="原生 VAE 解码"
+                    checked={vaeBatch === undefined}
+                    onChange={() => onChange({ fastH3VaeTileBatch: false, fastH3VaeTileBatchSize: undefined })}
+                  />
+                  <span className="kernel-choice-mark" aria-hidden="true" />
+                  <span><strong>原生 VAE 解码</strong><small>严格基线</small></span>
+                </label>
+                {[1, 2, 4].map((batch) => (
+                  <label className="kernel-choice" key={batch}>
+                    <input
+                      type="radio"
+                      name="fasth3-vae-batch"
+                      aria-label={`FastH3 VAE Tile Batch · batch ${batch}`}
+                      checked={vaeBatch === batch}
+                      disabled={!vaeAvailable}
+                      onChange={() => onChange({ fastH3VaeTileBatch: true, fastH3VaeTileBatchSize: batch as 1 | 2 | 4 })}
+                    />
+                    <span className="kernel-choice-mark" aria-hidden="true" />
+                    <span>
+                      <strong>VAE Tile Batch · {batch}</strong>
+                      <small>{batch === 1 ? '与分块顺序解码对照' : batch === 2 ? '当前推荐的性能候选' : vaeCapability?.reason || '原有 FastH3 batch 4 路径'}</small>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </section>
+          </div>
+          <p className={`optimization-status standard-optimization-status ${activeCount > 0 ? 'is-enabled' : ''}`}>{status}</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function FastH3AdvancedSettings({
   form,
   services,
   onChange,
 }: Pick<GenerationControlsProps, 'form' | 'services' | 'onChange'>) {
-  const cublasCapability = services?.fastH3CublasInt8;
-  const adaGemmCapability = services?.fastH3AdaGemmInt8;
-  const vaeCapability = services?.fastH3VaeTileBatch;
-  const cublasAvailable = cublasCapability?.available === true;
-  const adaGemmAvailable = adaGemmCapability?.available === true;
-  const vaeAvailable = vaeCapability?.available === true;
-  const status = `FastH3 VSA${form.fastH3AdaGemmInt8 ? ' + AdaGEMM INT8（实验性）' : form.fastH3CublasInt8 ? ' + GB10 cuBLAS INT8' : ''}${
-    form.fastH3VaeTileBatch ? ' + VAE Tile Batch 4' : ''
-  }`;
-
   return (
     <div className="advanced-content fasth3-advanced-content">
       <div className="advanced-field fast-contract-field">
@@ -151,56 +299,7 @@ function FastH3AdvancedSettings({
         </div>
         <p id="seed-help" className="seed-description">相同提示词、参数和种子可帮助复现实验结果。</p>
       </div>
-      <div className="advanced-field cache-field">
-        <span>GB10 优化项</span>
-        <div className="optimization-switches">
-          <label className="feature-cache-control optimization-toggle">
-            <input
-              type="checkbox"
-              aria-label="GB10 cuBLAS INT8"
-              checked={form.fastH3CublasInt8}
-              disabled={!cublasAvailable}
-              onChange={(event) => onChange({ fastH3CublasInt8: event.target.checked })}
-            />
-            <span className="feature-cache-track" aria-hidden="true"><i /></span>
-            <span className="feature-cache-copy">
-              <strong>GB10 cuBLAS INT8</strong>
-              <small>{cublasCapability?.reason || '仅加速 QKV、输出投影与 MLP；不启用全模型预加载。'}</small>
-            </span>
-          </label>
-          <label className="feature-cache-control optimization-toggle">
-            <input
-              type="checkbox"
-              aria-label="AdaGEMM INT8（实验性）"
-              checked={form.fastH3AdaGemmInt8}
-              disabled={!adaGemmAvailable}
-              onChange={(event) => onChange({ fastH3AdaGemmInt8: event.target.checked })}
-            />
-            <span className="feature-cache-track" aria-hidden="true"><i /></span>
-            <span className="feature-cache-copy">
-              <strong>AdaGEMM INT8（实验性）</strong>
-              <small>{adaGemmCapability?.reason || '融合 QKV、输出投影与 FC1 的 INT8 GEMM；SwiGLU 路径回退。已在 GB10 实测加速，不保证逐像素一致。'}</small>
-            </span>
-          </label>
-          <label className="feature-cache-control optimization-toggle">
-            <input
-              type="checkbox"
-              aria-label="FastH3 VAE Tile Batch · batch 4"
-              checked={form.fastH3VaeTileBatch}
-              disabled={!vaeAvailable}
-              onChange={(event) => onChange({ fastH3VaeTileBatch: event.target.checked })}
-            />
-            <span className="feature-cache-track" aria-hidden="true"><i /></span>
-            <span className="feature-cache-copy">
-              <strong>FastH3 VAE Tile Batch · batch 4</strong>
-              <small>{vaeCapability?.reason || '批量解码视频 tiles，缩短解码阶段等待。'}</small>
-            </span>
-          </label>
-        </div>
-        <p className={`optimization-status ${form.fastH3CublasInt8 || form.fastH3AdaGemmInt8 || form.fastH3VaeTileBatch ? 'is-enabled' : ''}`}>
-          {status}
-        </p>
-      </div>
+      <FastH3OptimizationPicker form={form} services={services} onChange={onChange} />
     </div>
   );
 }

@@ -7,7 +7,7 @@
 | 模式 | 工作流合同 | 适合场景 | 不应与什么混比 |
 | --- | --- | --- | --- |
 | H3 Standard | 6/10/15/20/25 step；Turbo 开启时固定 8 step | 质量基线、常规成片、单变量试验 | 不要把它与 FastH3 的总时间归因为某一个 kernel。 |
-| FastH3 VSA | 匹配 LoRA、resident gate、4-step Euler | 低延迟预览 | 不叠加 Standard 的缓存、Sparge、Fused Modulation。 |
+| FastH3 VSA | 匹配 LoRA、resident gate、4-step Euler，可选专用融合/INT8/VAE 解码档位 | 低延迟预览与受控 A/B | 不叠加 Standard 的缓存、Sparge、Fused Modulation。 |
 | MiniMax Music3 | 固定 30-step Euler，文本条件 | 音乐生成 | 不支持视频参考，也没有视频注意力优化。 |
 
 视频时长会先按 H3 时间网格对齐。服务以 24 FPS 计算，再把帧数调整到符合模型要求的长度；性能对比必须固定实际帧数，而不只是界面上写的秒数。
@@ -50,12 +50,13 @@ FastH3 是独立的优化链：
 INT8 ConvRot H3
   → FastH3 4-step LoRA (strength 1.0)
   → H3VSA (top-k 0.10, resident gate)
+  → optional FastH3 Fused Modulation
   → optional GB10 cuBLAS INT8 or AdaGEMM INT8
   → fixed simple scheduler + 4-step Euler
-  → optional VAE Tile Batch 4
+  → optional VAE Tile Batch 1 / 2 / 4
 ```
 
-VSA 使用训练 gate 选择视频 attention 的有效块，而不是随机丢弃 token。gate 在 resident 模式下首次使用后保留在 GPU，减少每个去噪步的传输代价，但会增加显存占用。对不满足 CUDA BF16、序列长度、gate 或形状要求的情况，节点应回退原始稠密 attention。
+VSA 使用训练 gate 选择视频 attention 的有效块，而不是随机丢弃 token。gate 在 resident 模式下首次使用后保留在 GPU，减少每个去噪步的传输代价，但会增加显存占用。对不满足 CUDA BF16、序列长度、gate 或形状要求的情况，节点应回退原始稠密 attention。FastH3 的 Fused Modulation 与 VAE batch 档位可独立启用；先以原生 VAE 解码为质量基线，再比较 batch 1、2、4 的端到端时间与显存峰值。
 
 当前有一组受控 FastH3 数据：在 832×480、124 帧、4-step Euler、固定 seed、resident gate、视频和音频均开启的条件下，基线为 63.012 秒；两次 cuBLAS INT8 运行分别为 54.999 秒与 56.431 秒，中位数 55.715 秒，较基线快 11.58%。该组 RGB24 与 PCM16 校验一致。
 

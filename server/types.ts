@@ -1,6 +1,7 @@
 export type ResolutionPreset = '480p' | '720p';
 export type FeatureCacheProfile = 'safe' | 'fast' | 'aggressive';
 export type SpargeProfile = 'balanced' | 'fast';
+export type FastH3VaeTileBatchSize = 1 | 2 | 4;
 export type SamplerName = 'res_multistep' | 'euler';
 export type GenerationService = 'h3_standard' | 'fasth3_vsa' | 'music3';
 export type H3InputMode = 'text' | 'keyframes' | 'references';
@@ -30,6 +31,8 @@ export interface ComfyServiceCapabilities {
   fastH3CublasInt8: ServiceCapability;
   /** Optional so an older H3 Studio origin can roll out safely. */
   fastH3AdaGemmInt8?: ServiceCapability;
+  /** Optional while an older H3 Studio origin is rolling out. */
+  fastH3FusedModulation?: ServiceCapability;
   fastH3VaeTileBatch: ServiceCapability;
   /** Optional for backward compatibility with an older H3 Studio origin. */
   taeH3Preview?: ServiceCapability;
@@ -72,7 +75,9 @@ export interface GenerationRequest {
   h3StandardAdaGemmInt8: boolean;
   fastH3CublasInt8: boolean;
   fastH3AdaGemmInt8: boolean;
+  fastH3FusedModulation?: boolean;
   fastH3VaeTileBatch: boolean;
+  fastH3VaeTileBatchSize?: FastH3VaeTileBatchSize;
   taeH3Preview: boolean;
   inputMode: H3InputMode;
   firstFrame?: InputAsset;
@@ -163,7 +168,9 @@ export interface JobSnapshot {
   h3StandardAdaGemmInt8?: boolean;
   fastH3CublasInt8?: boolean;
   fastH3AdaGemmInt8?: boolean;
+  fastH3FusedModulation?: boolean;
   fastH3VaeTileBatch?: boolean;
+  fastH3VaeTileBatchSize?: FastH3VaeTileBatchSize;
   taeH3Preview?: boolean;
   inputMode?: H3InputMode;
   firstFrame?: InputAsset;

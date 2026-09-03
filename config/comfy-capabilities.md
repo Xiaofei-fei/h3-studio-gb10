@@ -12,7 +12,8 @@ reported rather than silently substituted.
 | Reference video | `MiniMaxH3ReferenceToVideo` plus `minimax_h3_ref2va_pruned_int8_convrot.safetensors` | First/last-frame and multimodal reference conditioning. |
 | TAEH3 preview | `H3StudioTAEH3PreviewLoader`, `MiniMaxH3PreviewOverride` | Optional realtime preview; it is independent of inference optimizations. |
 | FastH3 VSA | `H3VSA`, `fasth3_vsa_4-steps-v5.safetensors`, `fasth3_vsa_gate.safetensors` | Low-latency VSA path with its fixed workflow settings. |
-| FastH3 decode | `MiniMaxH3VAEDecodeBatched` | Optional tile batch decode for FastH3. |
+| FastH3 optional patches | `MiniMaxH3FusedModulation`, `MiniMaxH3GB10CublasInt8`, `MiniMaxH3GB10AdaGemmInt8` | Capability-gated modulation fusion or one INT8 backend; the two INT8 choices remain mutually exclusive. |
+| FastH3 decode | `MiniMaxH3VAEDecodeBatched` | Optional tile batch decode with batch 1, 2, or 4. |
 | MiniMax Music3 | `VAEDecodeAudioTiled` plus the three Music3 model files | Music generation and optional tiled audio decoding. |
 | FlashVSR | `flashvsr-worker` on loopback port 8190 | Offline high-quality video enhancement after its compatibility gate passes. |
 | RealESRGAN | `realesrgan-worker` on loopback port 8191 | Deterministic x2 enhancement after checksum verification. |

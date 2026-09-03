@@ -90,4 +90,17 @@ describe('FastH3 result summaries', () => {
     expect(findComparableFastH3Job(fastH3AdaGemm, [fastH3Baseline])?.id).toBe('baseline');
     expect(findComparableFastH3Job(fastH3AdaGemm, [fastH3Optimized])).toBeUndefined();
   });
+
+  it('keeps FastH3 Fused Modulation and VAE batch choices out of an INT8-only comparison', () => {
+    const fusedBatchTwo: GenerationJob = {
+      ...fastH3Optimized,
+      fastH3FusedModulation: true,
+      fastH3VaeTileBatchSize: 2,
+    };
+
+    expect(formatOptimizationSummary(fusedBatchTwo)).toBe(
+      'FastH3 VSA + GB10 cuBLAS INT8 + Fused Modulation + VAE Tile Batch 2',
+    );
+    expect(findComparableFastH3Job(fusedBatchTwo, [fastH3Baseline])).toBeUndefined();
+  });
 });

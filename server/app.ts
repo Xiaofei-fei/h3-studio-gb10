@@ -728,6 +728,9 @@ export function createApp(
         if (input.fastH3AdaGemmInt8 && !capabilities.fastH3AdaGemmInt8?.available) {
           throw new InputError(capabilities.fastH3AdaGemmInt8?.reason || 'FastH3 AdaGEMM INT8 优化当前不可用。');
         }
+        if (input.fastH3FusedModulation && !capabilities.fastH3FusedModulation?.available) {
+          throw new InputError(capabilities.fastH3FusedModulation?.reason || 'FastH3 Fused Modulation 优化当前不可用。');
+        }
         if (input.fastH3VaeTileBatch && !capabilities.fastH3VaeTileBatch.available) {
           throw new InputError(capabilities.fastH3VaeTileBatch.reason || 'FastH3 VAE Tile Batch 当前不可用。');
         }
@@ -761,7 +764,9 @@ export function createApp(
         h3StandardAdaGemmInt8: input.h3StandardAdaGemmInt8,
         fastH3CublasInt8: input.fastH3CublasInt8,
         fastH3AdaGemmInt8: input.fastH3AdaGemmInt8,
+        fastH3FusedModulation: input.fastH3FusedModulation,
         fastH3VaeTileBatch: input.fastH3VaeTileBatch,
+        fastH3VaeTileBatchSize: input.fastH3VaeTileBatchSize,
         taeH3Preview: input.taeH3Preview,
         inputMode: input.inputMode,
         firstFrame: input.firstFrame,

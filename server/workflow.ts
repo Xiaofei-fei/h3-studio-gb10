@@ -3,6 +3,7 @@ import {
   SUPPORTED_STEPS,
   type ComfyPrompt,
   type FeatureCacheProfile,
+  type FastH3VaeTileBatchSize,
   type GenerationService,
   type GenerationRequest,
   type H3InputMode,
@@ -100,6 +101,12 @@ function asOptionalBoolean(value: unknown, label: string, defaultValue = false):
     throw new InputError(`${label}不正确，请重新选择。`);
   }
   return value;
+}
+
+function asOptionalFastH3VaeTileBatchSize(value: unknown): FastH3VaeTileBatchSize | undefined {
+  if (value === undefined) return undefined;
+  if (value === 1 || value === 2 || value === 4) return value;
+  throw new InputError('FastH3 VAE Tile Batch 档位不正确，请重新选择。');
 }
 
 function asFeatureCacheProfile(value: unknown): FeatureCacheProfile {
@@ -246,12 +253,17 @@ export function normalizeGenerationRequest(input: unknown): GenerationRequest {
   const requestedH3StandardAdaGemmInt8 = asOptionalBoolean(value.h3StandardAdaGemmInt8, 'H3 Standard AdaGEMM INT8');
   const requestedFastH3CublasInt8 = asOptionalBoolean(value.fastH3CublasInt8, 'FastH3 GB10 cuBLAS INT8');
   const requestedFastH3AdaGemmInt8 = asOptionalBoolean(value.fastH3AdaGemmInt8, 'FastH3 AdaGEMM INT8');
+  const requestedFastH3FusedModulation = asOptionalBoolean(value.fastH3FusedModulation, 'FastH3 Fused Modulation');
   const fastH3VaeTileBatch = asOptionalBoolean(value.fastH3VaeTileBatch, 'FastH3 VAE Tile Batch');
+  const requestedFastH3VaeTileBatchSize = asOptionalFastH3VaeTileBatchSize(value.fastH3VaeTileBatchSize);
   const taeH3Preview = asOptionalBoolean(value.taeH3Preview, 'TAEH3 实时预览');
   const h3StandardCublasInt8 = service === 'h3_standard' ? requestedH3StandardCublasInt8 : false;
   const h3StandardAdaGemmInt8 = service === 'h3_standard' ? requestedH3StandardAdaGemmInt8 : false;
   const fastH3CublasInt8 = service === 'fasth3_vsa' ? requestedFastH3CublasInt8 : false;
   const fastH3AdaGemmInt8 = service === 'fasth3_vsa' ? requestedFastH3AdaGemmInt8 : false;
+  const fastH3FusedModulation = service === 'fasth3_vsa' ? requestedFastH3FusedModulation : false;
+  const fastH3VaeTileBatchEnabled = service === 'fasth3_vsa'
+    && (fastH3VaeTileBatch || requestedFastH3VaeTileBatchSize !== undefined);
   if (h3StandardCublasInt8 && h3StandardAdaGemmInt8) {
     throw new InputError('H3 Standard 不能同时启用 GB10 cuBLAS INT8 与 AdaGEMM INT8。');
   }
@@ -303,7 +315,9 @@ export function normalizeGenerationRequest(input: unknown): GenerationRequest {
     h3StandardAdaGemmInt8,
     fastH3CublasInt8,
     fastH3AdaGemmInt8,
-    fastH3VaeTileBatch: service === 'fasth3_vsa' ? fastH3VaeTileBatch : false,
+    fastH3FusedModulation,
+    fastH3VaeTileBatch: fastH3VaeTileBatchEnabled,
+    fastH3VaeTileBatchSize: fastH3VaeTileBatchEnabled ? requestedFastH3VaeTileBatchSize ?? FASTH3_VIDEO_VAE_TILE_BATCH_SIZE : undefined,
     taeH3Preview: service === 'music3' ? false : taeH3Preview,
     inputMode,
     firstFrame,
@@ -669,16 +683,26 @@ function buildMusic3Workflow(request: GenerationRequest): ComfyPrompt {
 
 function buildFastH3VsaWorkflow(request: GenerationRequest): ComfyPrompt {
   const length = calculateFrameLength(request.seconds);
+  const modelAfterVsa: [string, number] = ['2', 0];
+  const modelAfterFusedModulation: [string, number] = request.fastH3FusedModulation ? ['18', 0] : modelAfterVsa;
   const modelInput: [string, number] = request.fastH3CublasInt8 || request.fastH3AdaGemmInt8
     ? ['21', 0]
-    : ['2', 0];
+    : modelAfterFusedModulation;
+  const fusedModulationNode: ComfyPrompt = request.fastH3FusedModulation
+    ? {
+        '18': {
+          class_type: 'MiniMaxH3FusedModulation',
+          inputs: { model: modelAfterVsa, enabled: true },
+        },
+      }
+    : {};
   const modelWithPreview: [string, number] = request.taeH3Preview ? ['91', 0] : modelInput;
   const cublasNode: ComfyPrompt = request.fastH3CublasInt8
     ? {
         '21': {
           class_type: 'MiniMaxH3GB10CublasInt8',
           inputs: {
-            model: ['2', 0],
+            model: modelAfterFusedModulation,
             enabled: true,
             scope: 'qkv_out_mlp',
             force_full_load: false,
@@ -689,9 +713,9 @@ function buildFastH3VsaWorkflow(request: GenerationRequest): ComfyPrompt {
     : request.fastH3AdaGemmInt8
       ? {
           '21': {
-            class_type: 'MiniMaxH3GB10AdaGemmInt8',
-            inputs: {
-              model: ['2', 0],
+          class_type: 'MiniMaxH3GB10AdaGemmInt8',
+          inputs: {
+            model: modelAfterFusedModulation,
               enabled: true,
               scope: 'qkv_out_mlp',
             },
@@ -743,6 +767,7 @@ function buildFastH3VsaWorkflow(request: GenerationRequest): ComfyPrompt {
         gate_residency: 'resident',
       },
     },
+    ...fusedModulationNode,
     ...cublasNode,
     ...taePreviewNode,
     '3': {
@@ -797,7 +822,7 @@ function buildFastH3VsaWorkflow(request: GenerationRequest): ComfyPrompt {
     '12': {
       class_type: request.fastH3VaeTileBatch ? 'MiniMaxH3VAEDecodeBatched' : 'VAEDecode',
       inputs: request.fastH3VaeTileBatch
-        ? { samples: ['11', 0], vae: ['5', 0], tile_batch_size: FASTH3_VIDEO_VAE_TILE_BATCH_SIZE }
+        ? { samples: ['11', 0], vae: ['5', 0], tile_batch_size: request.fastH3VaeTileBatchSize ?? FASTH3_VIDEO_VAE_TILE_BATCH_SIZE }
         : { samples: ['11', 0], vae: ['5', 0] },
     },
     '13': {

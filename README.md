@@ -9,7 +9,7 @@ H3 Studio 是 MiniMax H3 的本地控制台：React 前端负责操作界面，N
 | 模块 | 用途 | 主要能力 |
 | --- | --- | --- |
 | H3 Standard | 常规视频生成与受控 A/B | SpargeAttention、FirstBlockCache / EasyCache、Fused Modulation、Turbo LoRA 8-step、VAE Tile Batch、GB10 INT8 后端 |
-| FastH3 VSA | 固定低步数预览路径 | 4-step VSA LoRA、训练 gate、稀疏注意力、可选 cuBLAS/AdaGEMM INT8、VAE Tile Batch 4 |
+| FastH3 VSA | 固定低步数预览路径 | 4-step VSA LoRA、训练 gate、稀疏注意力、可选 cuBLAS/AdaGEMM INT8、Fused Modulation、VAE Tile Batch 1/2/4 |
 | MiniMax Music3 | 文本生成音乐 | Music3 专用工作流与可选分块音频解码 |
 | 参考与预览 | 视频生成辅助能力 | 首/尾帧、图像/视频/音频参考、TAEH3 实时预览 |
 | 视频增强 | 对已完成视频做离线后处理 | 稳定的 RealESRGAN x2 2K 路径；通过兼容性 gate 后开放 FlashVSR |

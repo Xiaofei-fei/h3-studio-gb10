@@ -12,6 +12,7 @@ export type JobState =
 
 export type FeatureCacheProfile = 'safe' | 'fast' | 'aggressive';
 export type SpargeProfile = 'balanced' | 'fast';
+export type FastH3VaeTileBatchSize = 1 | 2 | 4;
 export type SamplerName = 'res_multistep' | 'euler';
 export type GenerationService = 'h3_standard' | 'fasth3_vsa' | 'music3';
 export type H3InputMode = 'text' | 'keyframes' | 'references';
@@ -41,6 +42,8 @@ export interface ComfyServiceCapabilities {
   fastH3CublasInt8: ServiceCapability;
   /** Optional so a browser can still render while an older origin is rolling out. */
   fastH3AdaGemmInt8?: ServiceCapability;
+  /** Optional so a browser can still render while an older origin is rolling out. */
+  fastH3FusedModulation?: ServiceCapability;
   fastH3VaeTileBatch: ServiceCapability;
   /** Optional so a browser can still render while an older origin is rolling out. */
   taeH3Preview?: ServiceCapability;
@@ -83,7 +86,9 @@ export interface GenerationForm {
   h3StandardAdaGemmInt8: boolean;
   fastH3CublasInt8: boolean;
   fastH3AdaGemmInt8: boolean;
+  fastH3FusedModulation?: boolean;
   fastH3VaeTileBatch: boolean;
+  fastH3VaeTileBatchSize?: FastH3VaeTileBatchSize;
   taeH3Preview: boolean;
   inputMode: H3InputMode;
   firstFrame?: InputAsset;
@@ -137,7 +142,9 @@ export interface GenerationJob extends Omit<GenerationForm,
   | 'h3StandardAdaGemmInt8'
   | 'fastH3CublasInt8'
   | 'fastH3AdaGemmInt8'
+  | 'fastH3FusedModulation'
   | 'fastH3VaeTileBatch'
+  | 'fastH3VaeTileBatchSize'
   | 'taeH3Preview'
   | 'inputMode'
   | 'firstFrame'
@@ -154,7 +161,9 @@ export interface GenerationJob extends Omit<GenerationForm,
   h3StandardAdaGemmInt8?: boolean;
   fastH3CublasInt8?: boolean;
   fastH3AdaGemmInt8?: boolean;
+  fastH3FusedModulation?: boolean;
   fastH3VaeTileBatch?: boolean;
+  fastH3VaeTileBatchSize?: FastH3VaeTileBatchSize;
   taeH3Preview?: boolean;
   inputMode?: H3InputMode;
   firstFrame?: InputAsset;
@@ -210,7 +219,9 @@ export const DEFAULT_FORM: GenerationForm = {
   h3StandardAdaGemmInt8: false,
   fastH3CublasInt8: false,
   fastH3AdaGemmInt8: false,
+  fastH3FusedModulation: false,
   fastH3VaeTileBatch: false,
+  fastH3VaeTileBatchSize: undefined,
   taeH3Preview: false,
   inputMode: 'text',
   firstFrame: undefined,

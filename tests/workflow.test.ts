@@ -279,6 +279,45 @@ describe('H3 workflow inputs', () => {
     });
   });
 
+  it('keeps FastH3 VSA while adding fused modulation and a selected VAE tile batch', () => {
+    const request = normalizeGenerationRequest({
+      prompt: 'A cinematic cup of coffee',
+      width: 832,
+      height: 480,
+      seconds: 5,
+      steps: 4,
+      samplerName: 'euler',
+      seed: 42,
+      service: 'fasth3_vsa',
+      fastH3CublasInt8: true,
+      fastH3FusedModulation: true,
+      fastH3VaeTileBatch: true,
+      fastH3VaeTileBatchSize: 2,
+    });
+    const workflow = buildH3Workflow(request);
+
+    expect(request).toMatchObject({
+      service: 'fasth3_vsa',
+      fastH3FusedModulation: true,
+      fastH3VaeTileBatch: true,
+      fastH3VaeTileBatchSize: 2,
+    });
+    expect(workflow['18']).toMatchObject({
+      class_type: 'MiniMaxH3FusedModulation',
+      inputs: { model: ['2', 0], enabled: true },
+    });
+    expect(workflow['21']).toMatchObject({
+      class_type: 'MiniMaxH3GB10CublasInt8',
+      inputs: { model: ['18', 0], enabled: true, scope: 'qkv_out_mlp' },
+    });
+    expect(workflow['3'].inputs.model).toEqual(['21', 0]);
+    expect(workflow['10'].inputs.model).toEqual(['21', 0]);
+    expect(workflow['12']).toMatchObject({
+      class_type: 'MiniMaxH3VAEDecodeBatched',
+      inputs: { samples: ['11', 0], vae: ['5', 0], tile_batch_size: 2 },
+    });
+  });
+
   it('uses the batch-2 video decoder only when VAE Tile Batch is enabled', () => {
     const baseRequest = {
       prompt: 'A cinematic cup of coffee',

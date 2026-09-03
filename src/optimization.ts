@@ -12,9 +12,11 @@ export function formatOptimizationSummary(job: GenerationJob): string {
     const int8 = job.fastH3AdaGemmInt8
       ? ' + AdaGEMM INT8（实验性）'
       : job.fastH3CublasInt8 ? ' + GB10 cuBLAS INT8' : '';
-    return `FastH3 VSA${int8}${
-      job.fastH3VaeTileBatch ? ' + VAE Tile Batch 4' : ''
-    }`;
+    const fused = job.fastH3FusedModulation ? ' + Fused Modulation' : '';
+    const vaeTileBatch = job.fastH3VaeTileBatch
+      ? ` + VAE Tile Batch ${job.fastH3VaeTileBatchSize ?? 4}`
+      : '';
+    return `FastH3 VSA${int8}${fused}${vaeTileBatch}`;
   }
 
   const attention = job.spargeAttention === false ? 'Dense' : job.spargeProfile === 'fast' ? 'Sparge Fast' : 'Sparge';
@@ -38,6 +40,10 @@ function fastH3Int8Backend(job: GenerationJob): 'baseline' | 'cublas' | 'adagemm
   return job.fastH3CublasInt8 === true ? 'cublas' : 'baseline';
 }
 
+function fastH3VaeBatch(job: GenerationJob): 0 | 1 | 2 | 4 {
+  return job.fastH3VaeTileBatch ? job.fastH3VaeTileBatchSize ?? 4 : 0;
+}
+
 function sameFastH3ExecutionExceptInt8Backend(left: GenerationJob, right: GenerationJob): boolean {
   const leftBackend = fastH3Int8Backend(left);
   const rightBackend = fastH3Int8Backend(right);
@@ -51,7 +57,8 @@ function sameFastH3ExecutionExceptInt8Backend(left: GenerationJob, right: Genera
     && left.steps === right.steps
     && left.samplerName === right.samplerName
     && left.seed === right.seed
-    && (left.fastH3VaeTileBatch === true) === (right.fastH3VaeTileBatch === true)
+    && left.fastH3FusedModulation === right.fastH3FusedModulation
+    && fastH3VaeBatch(left) === fastH3VaeBatch(right)
     && leftBackend !== rightBackend
     && (leftBackend === 'baseline' || rightBackend === 'baseline');
 }
