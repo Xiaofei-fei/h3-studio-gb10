@@ -53,6 +53,7 @@ export class HttpComfyClient implements ComfyClient {
         system?: { comfyui_version?: string };
         devices?: Array<{ name?: string }>;
       };
+      const deviceName = stats.devices?.[0]?.name;
       const [
         h3Vsa,
         loraLoader,
@@ -60,6 +61,7 @@ export class HttpComfyClient implements ComfyClient {
         adaGemmInt8,
         fusedModulation,
         vaeDecodeBatched,
+        gb10VsaKernel,
         taePreviewOverride,
         taePreviewLoader,
         h3Reference,
@@ -84,6 +86,7 @@ export class HttpComfyClient implements ComfyClient {
         this.objectInfo('MiniMaxH3GB10AdaGemmInt8'),
         this.objectInfo('MiniMaxH3FusedModulation'),
         this.objectInfo('MiniMaxH3VAEDecodeBatched'),
+        this.objectInfo('H3StudioFastH3GB10VSA'),
         this.objectInfo('MiniMaxH3PreviewOverride'),
         this.objectInfo('H3StudioTAEH3PreviewLoader'),
         this.objectInfo('MiniMaxH3ReferenceToVideo'),
@@ -104,7 +107,7 @@ export class HttpComfyClient implements ComfyClient {
       ]);
       return {
         connected: true,
-        deviceName: stats.devices?.[0]?.name,
+        deviceName,
         comfyVersion: stats.system?.comfyui_version,
         services: detectServiceCapabilities({
           h3Vsa,
@@ -113,6 +116,8 @@ export class HttpComfyClient implements ComfyClient {
           adaGemmInt8,
           fusedModulation,
           vaeDecodeBatched,
+          gb10VsaKernel,
+          isGb10: /\bGB10\b/i.test(deviceName || ''),
           taePreviewOverride,
           taePreviewLoader,
           h3Reference,
@@ -327,6 +332,8 @@ interface CapabilityObjectInfo {
   adaGemmInt8: Record<string, unknown> | null;
   fusedModulation: Record<string, unknown> | null;
   vaeDecodeBatched: Record<string, unknown> | null;
+  gb10VsaKernel: Record<string, unknown> | null;
+  isGb10: boolean;
   taePreviewOverride: Record<string, unknown> | null;
   taePreviewLoader: Record<string, unknown> | null;
   h3Reference: Record<string, unknown> | null;
@@ -358,6 +365,8 @@ function detectServiceCapabilities(info: CapabilityObjectInfo): ComfyServiceCapa
     adaGemmInt8,
     fusedModulation,
     vaeDecodeBatched,
+    gb10VsaKernel,
+    isGb10,
     taePreviewOverride,
     taePreviewLoader,
     h3Reference,
@@ -379,6 +388,7 @@ function detectServiceCapabilities(info: CapabilityObjectInfo): ComfyServiceCapa
   const hasH3Vsa = Boolean(h3Vsa?.H3VSA);
   const hasCublasInt8 = Boolean(cublasInt8?.MiniMaxH3GB10CublasInt8);
   const hasAdaGemmInt8 = Boolean(adaGemmInt8?.MiniMaxH3GB10AdaGemmInt8);
+  const hasGb10VsaKernel = hasNode(gb10VsaKernel, 'H3StudioFastH3GB10VSA');
   const hasStandardCublas = hasInput(cublasInt8, 'MiniMaxH3GB10CublasInt8', 'allow_standard');
   const hasGate = selectOptions(h3Vsa, 'H3VSA', 'gate_file').includes('fasth3_vsa_gate.safetensors');
   const hasLora = selectOptions(loraLoader, 'LoraLoaderModelOnly', 'lora_name').includes('fasth3_vsa_4-steps-v5.safetensors');
@@ -434,6 +444,11 @@ function detectServiceCapabilities(info: CapabilityObjectInfo): ComfyServiceCapa
     fastH3Vsa: fastH3Reason
       ? { available: false, reason: fastH3Reason }
       : { available: true },
+    fastH3Gb10VsaKernel: !hasGb10VsaKernel
+      ? { available: false, reason: '未检测到 H3StudioFastH3GB10VSA 节点。' }
+      : !isGb10
+        ? { available: false, reason: 'VSA Fused Layout Engine 仅支持 GB10。' }
+        : { available: true },
     fastH3CublasInt8: hasCublasInt8
       ? { available: true }
       : { available: false, reason: '未检测到 MiniMaxH3GB10CublasInt8 节点。' },

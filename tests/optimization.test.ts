@@ -103,4 +103,16 @@ describe('FastH3 result summaries', () => {
     );
     expect(findComparableFastH3Job(fusedBatchTwo, [fastH3Baseline])).toBeUndefined();
   });
+
+  it('labels the VSA layout engine without appending its lossless property to the name', () => {
+    const fusedLayout: GenerationJob = {
+      ...fastH3Optimized,
+      fastH3Gb10VsaKernel: true,
+    };
+
+    expect(formatOptimizationSummary(fusedLayout)).toBe(
+      'FastH3 VSA + VSA Fused Layout Engine + GB10 cuBLAS INT8 + VAE Tile Batch 4',
+    );
+    expect(findComparableFastH3Job(fusedLayout, [fastH3Baseline])).toBeUndefined();
+  });
 });

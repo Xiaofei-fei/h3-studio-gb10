@@ -136,6 +136,9 @@ describe('HttpComfyClient FastH3 capabilities', () => {
       }),
       cublas: new Response('', { status: 404 }),
       vaeBatch: objectInfo('MiniMaxH3VAEDecodeBatched'),
+      extra: {
+        H3StudioFastH3GB10VSA: objectInfo('H3StudioFastH3GB10VSA'),
+      },
     });
 
     const health = await new HttpComfyClient('http://comfy.local').health();
@@ -147,6 +150,7 @@ describe('HttpComfyClient FastH3 capabilities', () => {
         h3StandardCublasInt8: { available: false },
         fastH3Vsa: { available: true },
         fastH3CublasInt8: { available: false },
+        fastH3Gb10VsaKernel: { available: true },
         fastH3VaeTileBatch: { available: true },
       },
     });

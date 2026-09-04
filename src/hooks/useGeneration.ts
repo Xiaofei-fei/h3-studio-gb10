@@ -180,6 +180,7 @@ export function useGeneration(api: StudioApi = studioApi) {
       vaeTileBatch: currentJob.vaeTileBatch === true,
       h3StandardCublasInt8: currentJob.h3StandardCublasInt8 === true,
       h3StandardAdaGemmInt8: currentJob.h3StandardAdaGemmInt8 === true,
+      fastH3Gb10VsaKernel: currentJob.fastH3Gb10VsaKernel === true,
       fastH3CublasInt8: currentJob.fastH3CublasInt8 === true,
       fastH3AdaGemmInt8: currentJob.fastH3AdaGemmInt8 === true,
       fastH3FusedModulation: currentJob.fastH3FusedModulation === true,

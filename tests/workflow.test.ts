@@ -247,6 +247,118 @@ describe('H3 workflow inputs', () => {
     expect(workflow['12']).toMatchObject({ class_type: 'VAEDecode' });
   });
 
+  it('inserts the opt-in FastH3 kernel profiler after VSA without changing the sampler contract', () => {
+    // This would fail if the profiling model were not wired into scheduling and guiding,
+    // which would silently profile a different model than the one that generates video.
+    const workflow = buildH3Workflow(normalizeGenerationRequest({
+      prompt: 'A cinematic cup of coffee',
+      width: 832,
+      height: 480,
+      seconds: 5,
+      steps: 4,
+      samplerName: 'euler',
+      seed: 42,
+      service: 'fasth3_vsa',
+      fastH3KernelProfile: true,
+    }));
+
+    expect(workflow['22']).toMatchObject({
+      class_type: 'H3StudioFastH3Profile',
+      inputs: { model: ['2', 0], enabled: true },
+    });
+    expect(workflow['3'].inputs).toMatchObject({ model: ['22', 0], steps: 4 });
+    expect(workflow['10'].inputs.model).toEqual(['22', 0]);
+  });
+
+  it('routes the experimental GB10 VSA packer before scheduling and guidance', () => {
+    // This would fail if the new VSA model patch were created but sampling still
+    // consumed the unpatched H3VSA model.
+    const workflow = buildH3Workflow(normalizeGenerationRequest({
+      prompt: 'A cinematic cup of coffee',
+      width: 832,
+      height: 480,
+      seconds: 5,
+      steps: 4,
+      samplerName: 'euler',
+      seed: 42,
+      service: 'fasth3_vsa',
+      fastH3Gb10VsaKernel: true,
+    }));
+
+    expect(workflow['23']).toMatchObject({
+      class_type: 'H3StudioFastH3GB10VSA',
+      inputs: { model: ['2', 0], enabled: true },
+    });
+    expect(workflow['3'].inputs.model).toEqual(['23', 0]);
+    expect(workflow['10'].inputs.model).toEqual(['23', 0]);
+  });
+
+  it('applies INT8 projection patches before the experimental VSA packer so the fused forward retains them', () => {
+    // This would fail if node 23 captured the pre-INT8 attention methods.
+    // The generated pixels would then silently match the non-INT8 baseline
+    // even though the workflow advertised cuBLASLt INT8 as enabled.
+    const workflow = buildH3Workflow(normalizeGenerationRequest({
+      prompt: 'A cinematic cup of coffee',
+      width: 832,
+      height: 480,
+      seconds: 5,
+      steps: 4,
+      samplerName: 'euler',
+      seed: 42,
+      service: 'fasth3_vsa',
+      fastH3CublasInt8: true,
+      fastH3Gb10VsaKernel: true,
+    }));
+
+    expect(workflow['21']).toMatchObject({
+      class_type: 'MiniMaxH3GB10CublasInt8',
+      inputs: { model: ['2', 0], enabled: true, scope: 'qkv_out_mlp' },
+    });
+    expect(workflow['23']).toMatchObject({
+      class_type: 'H3StudioFastH3GB10VSA',
+      inputs: { model: ['21', 0], enabled: true },
+    });
+    expect(workflow['3'].inputs.model).toEqual(['23', 0]);
+    expect(workflow['10'].inputs.model).toEqual(['23', 0]);
+  });
+
+  it('keeps FastH3 profiling and the VSA packer separate so timing remains attributable', () => {
+    // This would fail if two alternative H3VSA forward wrappers were silently
+    // composed and reported timings for a different calculation path.
+    expect(() => normalizeGenerationRequest({
+      prompt: 'A cinematic cup of coffee',
+      width: 832,
+      height: 480,
+      seconds: 5,
+      steps: 4,
+      samplerName: 'euler',
+      seed: 42,
+      service: 'fasth3_vsa',
+      fastH3KernelProfile: true,
+      fastH3Gb10VsaKernel: true,
+    })).toThrow('不能同时启用');
+  });
+
+  it('gives each same-seed FastH3 request an inert sampler nonce so Comfy recomputes it', () => {
+    const request = normalizeGenerationRequest({
+      prompt: 'A cinematic cup of coffee',
+      width: 832,
+      height: 480,
+      seconds: 5,
+      steps: 4,
+      samplerName: 'euler',
+      seed: 42,
+      service: 'fasth3_vsa',
+    });
+
+    const first = buildH3Workflow(request);
+    const second = buildH3Workflow(request);
+
+    expect(first['8'].inputs).toMatchObject({ noise_seed: 42 });
+    expect(first['8'].inputs.h3_studio_run_nonce).toEqual(expect.any(String));
+    expect(first['8'].inputs.h3_studio_run_nonce).not.toBe(second['8'].inputs.h3_studio_run_nonce);
+  });
+
   it('adds the GB10 cuBLAS and batch-four VAE paths when their direct switches are enabled', () => {
     const workflow = buildH3Workflow(normalizeGenerationRequest({
       prompt: 'A cinematic cup of coffee',

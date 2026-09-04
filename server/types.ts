@@ -28,6 +28,8 @@ export interface ComfyServiceCapabilities {
   /** Optional so an older H3 Studio origin can roll out safely. */
   h3StandardAdaGemmInt8?: ServiceCapability;
   fastH3Vsa: ServiceCapability;
+  /** Optional while an older H3 Studio origin is rolling out. */
+  fastH3Gb10VsaKernel?: ServiceCapability;
   fastH3CublasInt8: ServiceCapability;
   /** Optional so an older H3 Studio origin can roll out safely. */
   fastH3AdaGemmInt8?: ServiceCapability;
@@ -76,6 +78,10 @@ export interface GenerationRequest {
   fastH3CublasInt8: boolean;
   fastH3AdaGemmInt8: boolean;
   fastH3FusedModulation?: boolean;
+  /** Operator-only: emits aggregate CUDA timings for a FastH3 VSA run. */
+  fastH3KernelProfile?: boolean;
+  /** VSA Fused Layout Engine; available only on GB10. */
+  fastH3Gb10VsaKernel?: boolean;
   fastH3VaeTileBatch: boolean;
   fastH3VaeTileBatchSize?: FastH3VaeTileBatchSize;
   taeH3Preview: boolean;
@@ -166,6 +172,7 @@ export interface JobSnapshot {
   service?: GenerationService;
   h3StandardCublasInt8?: boolean;
   h3StandardAdaGemmInt8?: boolean;
+  fastH3Gb10VsaKernel?: boolean;
   fastH3CublasInt8?: boolean;
   fastH3AdaGemmInt8?: boolean;
   fastH3FusedModulation?: boolean;

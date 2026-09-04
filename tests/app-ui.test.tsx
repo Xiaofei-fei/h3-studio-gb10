@@ -169,7 +169,7 @@ describe('H3 Studio primary screen', () => {
     expect(adaGemm).toBeChecked();
   });
 
-  it('uses the same compact optimization picker for FastH3 VSA switches', async () => {
+  it('uses a fixed batch-four VAE switch instead of per-batch FastH3 controls', async () => {
     const user = userEvent.setup();
     const submitted: unknown[] = [];
     const fastApi: StudioApi = {
@@ -182,6 +182,7 @@ describe('H3 Studio primary screen', () => {
           h3StandardCublasInt8: { available: true },
           fastH3Vsa: { available: true },
           fastH3CublasInt8: { available: true },
+          fastH3Gb10VsaKernel: { available: true },
           fastH3FusedModulation: { available: true },
           fastH3VaeTileBatch: { available: true },
         },
@@ -222,11 +223,22 @@ describe('H3 Studio primary screen', () => {
     expect(configure).toHaveAttribute('aria-expanded', 'false');
     await user.click(configure);
 
+    const vsaLayoutKernel = within(picker).getByRole('checkbox', { name: 'VSA Fused Layout Engine' });
+    expect(vsaLayoutKernel).toBeEnabled();
+    expect(vsaLayoutKernel).toBeChecked();
+    expect(within(picker).getByText('VSA Fused Layout Engine')).toBeVisible();
+    expect(within(picker).queryByText('VSA Fused Layout Engine 无损')).not.toBeInTheDocument();
+    expect(within(picker).getByText('无损 · 等价布局重排')).toBeVisible();
+
     const kernelGroup = within(picker).getByRole('radiogroup', { name: '计算内核' });
     await user.click(within(kernelGroup).getByRole('radio', { name: 'GB10 cuBLAS INT8' }));
     await user.click(within(picker).getByRole('checkbox', { name: 'FastH3 Fused Modulation' }));
-    const vaeGroup = within(picker).getByRole('radiogroup', { name: '视频 VAE 解码' });
-    await user.click(within(vaeGroup).getByRole('radio', { name: 'FastH3 VAE Tile Batch · batch 2' }));
+    const vaeTileBatch = within(picker).getByRole('checkbox', { name: 'VAE Tile Batch' });
+    expect(vaeTileBatch).toBeEnabled();
+    expect(within(picker).queryByRole('radiogroup', { name: '视频 VAE 解码' })).not.toBeInTheDocument();
+    expect(within(picker).queryByRole('radio', { name: 'FastH3 VAE Tile Batch · batch 1' })).not.toBeInTheDocument();
+    expect(within(picker).queryByRole('radio', { name: 'FastH3 VAE Tile Batch · batch 4' })).not.toBeInTheDocument();
+    await user.click(vaeTileBatch);
     await user.type(scoped.getByLabelText(/创作描述/), 'A cinematic cup of coffee with gentle steam');
     await user.click(scoped.getByRole('button', { name: '生成视频' }));
 
@@ -234,9 +246,10 @@ describe('H3 Studio primary screen', () => {
     expect(submitted[0]).toMatchObject({
       service: 'fasth3_vsa',
       fastH3CublasInt8: true,
+      fastH3Gb10VsaKernel: true,
       fastH3FusedModulation: true,
       fastH3VaeTileBatch: true,
-      fastH3VaeTileBatchSize: 2,
+      fastH3VaeTileBatchSize: 4,
       steps: 4,
       samplerName: 'euler',
     });

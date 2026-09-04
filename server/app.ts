@@ -722,6 +722,9 @@ export function createApp(
         if (!capabilities?.fastH3Vsa.available) {
           throw new InputError(capabilities?.fastH3Vsa.reason || 'FastH3 VSA 当前不可用。');
         }
+        if (input.fastH3Gb10VsaKernel && !capabilities.fastH3Gb10VsaKernel?.available) {
+          throw new InputError(capabilities.fastH3Gb10VsaKernel?.reason || 'VSA Fused Layout Engine 当前不可用。');
+        }
         if (input.fastH3CublasInt8 && !capabilities.fastH3CublasInt8.available) {
           throw new InputError(capabilities.fastH3CublasInt8.reason || 'GB10 cuBLAS INT8 优化当前不可用。');
         }
@@ -762,6 +765,7 @@ export function createApp(
         service: input.service,
         h3StandardCublasInt8: input.h3StandardCublasInt8,
         h3StandardAdaGemmInt8: input.h3StandardAdaGemmInt8,
+        fastH3Gb10VsaKernel: input.fastH3Gb10VsaKernel,
         fastH3CublasInt8: input.fastH3CublasInt8,
         fastH3AdaGemmInt8: input.fastH3AdaGemmInt8,
         fastH3FusedModulation: input.fastH3FusedModulation,

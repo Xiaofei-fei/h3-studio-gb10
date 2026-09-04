@@ -23,6 +23,7 @@ const validForm = {
   vaeTileBatch: false,
   h3StandardCublasInt8: false,
   h3StandardAdaGemmInt8: false,
+  fastH3Gb10VsaKernel: false,
   fastH3CublasInt8: false,
   fastH3AdaGemmInt8: false,
   fastH3VaeTileBatch: false,

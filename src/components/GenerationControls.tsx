@@ -112,24 +112,28 @@ function FastH3OptimizationPicker({
   const adaGemmCapability = services?.fastH3AdaGemmInt8;
   const fusedCapability = services?.fastH3FusedModulation;
   const vaeCapability = services?.fastH3VaeTileBatch;
+  const vsaLayoutCapability = services?.fastH3Gb10VsaKernel;
   const cublasAvailable = cublasCapability?.available === true;
   const adaGemmAvailable = adaGemmCapability?.available === true;
   const fusedAvailable = fusedCapability?.available === true;
   const vaeAvailable = vaeCapability?.available === true;
-  const vaeBatch = form.fastH3VaeTileBatch ? form.fastH3VaeTileBatchSize ?? 4 : undefined;
+  const vsaLayoutAvailable = vsaLayoutCapability?.available === true;
+  const vaeTileBatchEnabled = form.fastH3VaeTileBatch;
   const activeCount = [
+    form.fastH3Gb10VsaKernel,
     form.fastH3CublasInt8 || form.fastH3AdaGemmInt8,
     form.fastH3FusedModulation,
-    vaeBatch !== undefined,
+    vaeTileBatchEnabled,
   ].filter(Boolean).length;
   const compactSummary = [
+    form.fastH3Gb10VsaKernel ? 'VSA Fused Layout Engine' : undefined,
     form.fastH3AdaGemmInt8 ? 'AdaGEMM INT8' : form.fastH3CublasInt8 ? 'cuBLAS INT8' : undefined,
     form.fastH3FusedModulation ? 'Fused Modulation' : undefined,
-    vaeBatch !== undefined ? `VAE Tile Batch · ${vaeBatch}` : undefined,
+    vaeTileBatchEnabled ? 'VAE Tile Batch' : undefined,
   ].filter((item): item is string => Boolean(item)).slice(0, 2).join(' · ');
-  const status = `FastH3 VSA${form.fastH3AdaGemmInt8 ? ' + AdaGEMM INT8（实验性）' : form.fastH3CublasInt8 ? ' + GB10 cuBLAS INT8' : ''}${
+  const status = `FastH3 VSA${form.fastH3Gb10VsaKernel ? ' + VSA Fused Layout Engine' : ''}${form.fastH3AdaGemmInt8 ? ' + AdaGEMM INT8（实验性）' : form.fastH3CublasInt8 ? ' + GB10 cuBLAS INT8' : ''}${
     form.fastH3FusedModulation ? ' + Fused Modulation' : ''
-  }${vaeBatch !== undefined ? ` + VAE Tile Batch ${vaeBatch}` : ''}`;
+  }${vaeTileBatchEnabled ? ' + VAE Tile Batch' : ''}`;
 
   return (
     <section className={`standard-optimization-picker ${isOpen ? 'is-open' : ''}`} aria-label="推理优化">
@@ -151,6 +155,27 @@ function FastH3OptimizationPicker({
       {isOpen && (
         <div id="fasth3-optimization-options" className="standard-optimization-options">
           <div className="standard-optimization-groups">
+            <section className="optimization-picker-group">
+              <div className="optimization-picker-heading">
+                <strong>注意力布局</strong>
+                <small>无损 · 等价布局重排</small>
+              </div>
+              <label className="feature-cache-control compact-optimization-choice">
+                <input
+                  type="checkbox"
+                  aria-label="VSA Fused Layout Engine"
+                  checked={form.fastH3Gb10VsaKernel === true}
+                  disabled={!vsaLayoutAvailable}
+                  onChange={(event) => onChange({ fastH3Gb10VsaKernel: event.target.checked })}
+                />
+                <span className="feature-cache-track" aria-hidden="true"><i /></span>
+                <span className="feature-cache-copy">
+                  <strong>VSA Fused Layout Engine</strong>
+                  <small>{vsaLayoutCapability?.reason || '直接构造 VSA 对齐布局，减少额外重排与 padding；不改变注意力计算语义。'}</small>
+                </span>
+              </label>
+            </section>
+
             <section className="optimization-picker-group">
               <div className="optimization-picker-heading">
                 <strong>计算内核</strong>
@@ -219,38 +244,24 @@ function FastH3OptimizationPicker({
             <section className="optimization-picker-group">
               <div className="optimization-picker-heading">
                 <strong>视频 VAE 解码</strong>
-                <small>batch 越大，显存峰值越高</small>
+                <small>开启后固定 batch 4；关闭后使用原生解码</small>
               </div>
-              <div className="kernel-choice-list" role="radiogroup" aria-label="视频 VAE 解码">
-                <label className="kernel-choice">
-                  <input
-                    type="radio"
-                    name="fasth3-vae-batch"
-                    aria-label="原生 VAE 解码"
-                    checked={vaeBatch === undefined}
-                    onChange={() => onChange({ fastH3VaeTileBatch: false, fastH3VaeTileBatchSize: undefined })}
-                  />
-                  <span className="kernel-choice-mark" aria-hidden="true" />
-                  <span><strong>原生 VAE 解码</strong><small>严格基线</small></span>
-                </label>
-                {[1, 2, 4].map((batch) => (
-                  <label className="kernel-choice" key={batch}>
-                    <input
-                      type="radio"
-                      name="fasth3-vae-batch"
-                      aria-label={`FastH3 VAE Tile Batch · batch ${batch}`}
-                      checked={vaeBatch === batch}
-                      disabled={!vaeAvailable}
-                      onChange={() => onChange({ fastH3VaeTileBatch: true, fastH3VaeTileBatchSize: batch as 1 | 2 | 4 })}
-                    />
-                    <span className="kernel-choice-mark" aria-hidden="true" />
-                    <span>
-                      <strong>VAE Tile Batch · {batch}</strong>
-                      <small>{batch === 1 ? '与分块顺序解码对照' : batch === 2 ? '当前推荐的性能候选' : vaeCapability?.reason || '原有 FastH3 batch 4 路径'}</small>
-                    </span>
-                  </label>
-                ))}
-              </div>
+              <label className="feature-cache-control compact-optimization-choice">
+                <input
+                  type="checkbox"
+                  aria-label="VAE Tile Batch"
+                  checked={vaeTileBatchEnabled}
+                  disabled={!vaeAvailable}
+                  onChange={(event) => onChange(event.target.checked
+                    ? { fastH3VaeTileBatch: true, fastH3VaeTileBatchSize: 4 }
+                    : { fastH3VaeTileBatch: false, fastH3VaeTileBatchSize: undefined })}
+                />
+                <span className="feature-cache-track" aria-hidden="true"><i /></span>
+                <span className="feature-cache-copy">
+                  <strong>VAE Tile Batch</strong>
+                  <small>{vaeCapability?.reason || '以 batch 4 并行解码视频 tiles，缩短解码尾部；显存不足时关闭。'}</small>
+                </span>
+              </label>
             </section>
           </div>
           <p className={`optimization-status standard-optimization-status ${activeCount > 0 ? 'is-enabled' : ''}`}>{status}</p>

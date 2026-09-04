@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   SUPPORTED_RESOLUTIONS,
   SUPPORTED_STEPS,
@@ -254,6 +255,8 @@ export function normalizeGenerationRequest(input: unknown): GenerationRequest {
   const requestedFastH3CublasInt8 = asOptionalBoolean(value.fastH3CublasInt8, 'FastH3 GB10 cuBLAS INT8');
   const requestedFastH3AdaGemmInt8 = asOptionalBoolean(value.fastH3AdaGemmInt8, 'FastH3 AdaGEMM INT8');
   const requestedFastH3FusedModulation = asOptionalBoolean(value.fastH3FusedModulation, 'FastH3 Fused Modulation');
+  const requestedFastH3KernelProfile = asOptionalBoolean(value.fastH3KernelProfile, 'FastH3 kernel profiling');
+  const requestedFastH3Gb10VsaKernel = asOptionalBoolean(value.fastH3Gb10VsaKernel, 'VSA Fused Layout Engine');
   const fastH3VaeTileBatch = asOptionalBoolean(value.fastH3VaeTileBatch, 'FastH3 VAE Tile Batch');
   const requestedFastH3VaeTileBatchSize = asOptionalFastH3VaeTileBatchSize(value.fastH3VaeTileBatchSize);
   const taeH3Preview = asOptionalBoolean(value.taeH3Preview, 'TAEH3 实时预览');
@@ -262,6 +265,8 @@ export function normalizeGenerationRequest(input: unknown): GenerationRequest {
   const fastH3CublasInt8 = service === 'fasth3_vsa' ? requestedFastH3CublasInt8 : false;
   const fastH3AdaGemmInt8 = service === 'fasth3_vsa' ? requestedFastH3AdaGemmInt8 : false;
   const fastH3FusedModulation = service === 'fasth3_vsa' ? requestedFastH3FusedModulation : false;
+  const fastH3KernelProfile = service === 'fasth3_vsa' ? requestedFastH3KernelProfile : false;
+  const fastH3Gb10VsaKernel = service === 'fasth3_vsa' ? requestedFastH3Gb10VsaKernel : false;
   const fastH3VaeTileBatchEnabled = service === 'fasth3_vsa'
     && (fastH3VaeTileBatch || requestedFastH3VaeTileBatchSize !== undefined);
   if (h3StandardCublasInt8 && h3StandardAdaGemmInt8) {
@@ -269,6 +274,9 @@ export function normalizeGenerationRequest(input: unknown): GenerationRequest {
   }
   if (fastH3CublasInt8 && fastH3AdaGemmInt8) {
     throw new InputError('FastH3 不能同时启用 GB10 cuBLAS INT8 与 AdaGEMM INT8。');
+  }
+  if (fastH3KernelProfile && fastH3Gb10VsaKernel) {
+    throw new InputError('FastH3 kernel profiling 与 VSA Fused Layout Engine 不能同时启用。');
   }
   const firstFrame = inputMode === 'keyframes' ? asOptionalInputAsset(value.firstFrame, 'image', '首帧') : undefined;
   const lastFrame = inputMode === 'keyframes' ? asOptionalInputAsset(value.lastFrame, 'image', '尾帧') : undefined;
@@ -316,6 +324,8 @@ export function normalizeGenerationRequest(input: unknown): GenerationRequest {
     fastH3CublasInt8,
     fastH3AdaGemmInt8,
     fastH3FusedModulation,
+    fastH3KernelProfile,
+    fastH3Gb10VsaKernel,
     fastH3VaeTileBatch: fastH3VaeTileBatchEnabled,
     fastH3VaeTileBatchSize: fastH3VaeTileBatchEnabled ? requestedFastH3VaeTileBatchSize ?? FASTH3_VIDEO_VAE_TILE_BATCH_SIZE : undefined,
     taeH3Preview: service === 'music3' ? false : taeH3Preview,
@@ -333,10 +343,17 @@ export function normalizeGenerationRequest(input: unknown): GenerationRequest {
 
 export function buildH3Workflow(request: GenerationRequest): ComfyPrompt {
   if (request.service === 'music3') return buildMusic3Workflow(request);
-  return request.service === 'fasth3_vsa' ? buildFastH3VsaWorkflow(request) : buildStandardH3Workflow(request);
+  // Comfy's intermediate-output cache otherwise reuses an identical sampler
+  // result for a repeated prompt/seed, which makes an A/B run look faster
+  // without executing the DiT. The unknown RandomNoise input is deliberately
+  // ignored by the node implementation but included in Comfy's cache key.
+  const runNonce = randomUUID();
+  return request.service === 'fasth3_vsa'
+    ? buildFastH3VsaWorkflow(request, runNonce)
+    : buildStandardH3Workflow(request, runNonce);
 }
 
-function buildStandardH3Workflow(request: GenerationRequest): ComfyPrompt {
+function buildStandardH3Workflow(request: GenerationRequest, runNonce: string): ComfyPrompt {
   const length = calculateFrameLength(request.seconds);
   const cachePreset = FEATURE_CACHE_PRESETS[request.featureCacheProfile];
   const spargePreset = SPARGE_PRESETS[request.spargeProfile];
@@ -561,7 +578,7 @@ function buildStandardH3Workflow(request: GenerationRequest): ComfyPrompt {
     },
     '8': {
       class_type: 'RandomNoise',
-      inputs: { noise_seed: request.seed },
+      inputs: { noise_seed: request.seed, h3_studio_run_nonce: runNonce },
     },
     '9': {
       class_type: 'KSamplerSelect',
@@ -681,18 +698,40 @@ function buildMusic3Workflow(request: GenerationRequest): ComfyPrompt {
   };
 }
 
-function buildFastH3VsaWorkflow(request: GenerationRequest): ComfyPrompt {
+function buildFastH3VsaWorkflow(request: GenerationRequest, runNonce: string): ComfyPrompt {
   const length = calculateFrameLength(request.seconds);
   const modelAfterVsa: [string, number] = ['2', 0];
   const modelAfterFusedModulation: [string, number] = request.fastH3FusedModulation ? ['18', 0] : modelAfterVsa;
-  const modelInput: [string, number] = request.fastH3CublasInt8 || request.fastH3AdaGemmInt8
+  const modelAfterInt8: [string, number] = request.fastH3CublasInt8 || request.fastH3AdaGemmInt8
     ? ['21', 0]
     : modelAfterFusedModulation;
+  // The packer captures the active QKV/out-projection methods.  Keep it after
+  // an INT8 node so it retains the selected GEMM implementation instead of
+  // closing over the pre-patched attention modules.
+  const modelAfterGb10Vsa: [string, number] = request.fastH3Gb10VsaKernel ? ['23', 0] : modelAfterInt8;
+  const modelAfterProfile: [string, number] = request.fastH3KernelProfile ? ['22', 0] : modelAfterGb10Vsa;
+  const modelInput: [string, number] = modelAfterProfile;
   const fusedModulationNode: ComfyPrompt = request.fastH3FusedModulation
     ? {
         '18': {
           class_type: 'MiniMaxH3FusedModulation',
           inputs: { model: modelAfterVsa, enabled: true },
+        },
+      }
+    : {};
+  const profileNode: ComfyPrompt = request.fastH3KernelProfile
+    ? {
+        '22': {
+          class_type: 'H3StudioFastH3Profile',
+          inputs: { model: modelAfterGb10Vsa, enabled: true, expected_calls: 200 },
+        },
+      }
+    : {};
+  const gb10VsaNode: ComfyPrompt = request.fastH3Gb10VsaKernel
+    ? {
+        '23': {
+          class_type: 'H3StudioFastH3GB10VSA',
+          inputs: { model: modelAfterInt8, enabled: true },
         },
       }
     : {};
@@ -743,7 +782,6 @@ function buildFastH3VsaWorkflow(request: GenerationRequest): ComfyPrompt {
         },
       }
     : {};
-
   return {
     '1': {
       class_type: 'UNETLoader',
@@ -767,6 +805,8 @@ function buildFastH3VsaWorkflow(request: GenerationRequest): ComfyPrompt {
         gate_residency: 'resident',
       },
     },
+    ...gb10VsaNode,
+    ...profileNode,
     ...fusedModulationNode,
     ...cublasNode,
     ...taePreviewNode,
@@ -799,7 +839,7 @@ function buildFastH3VsaWorkflow(request: GenerationRequest): ComfyPrompt {
     },
     '8': {
       class_type: 'RandomNoise',
-      inputs: { noise_seed: request.seed },
+      inputs: { noise_seed: request.seed, h3_studio_run_nonce: runNonce },
     },
     '9': {
       class_type: 'KSamplerSelect',

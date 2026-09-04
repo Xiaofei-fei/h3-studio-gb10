@@ -9,6 +9,7 @@ export function formatOptimizationSummary(job: GenerationJob): string {
     return `MiniMax Music3${job.musicTiledDecode === false ? '' : ' + 分块音频解码'} + Euler`;
   }
   if (serviceOf(job) === 'fasth3_vsa') {
+    const vsaLayout = job.fastH3Gb10VsaKernel ? ' + VSA Fused Layout Engine' : '';
     const int8 = job.fastH3AdaGemmInt8
       ? ' + AdaGEMM INT8（实验性）'
       : job.fastH3CublasInt8 ? ' + GB10 cuBLAS INT8' : '';
@@ -16,7 +17,7 @@ export function formatOptimizationSummary(job: GenerationJob): string {
     const vaeTileBatch = job.fastH3VaeTileBatch
       ? ` + VAE Tile Batch ${job.fastH3VaeTileBatchSize ?? 4}`
       : '';
-    return `FastH3 VSA${int8}${fused}${vaeTileBatch}`;
+    return `FastH3 VSA${vsaLayout}${int8}${fused}${vaeTileBatch}`;
   }
 
   const attention = job.spargeAttention === false ? 'Dense' : job.spargeProfile === 'fast' ? 'Sparge Fast' : 'Sparge';
@@ -57,6 +58,7 @@ function sameFastH3ExecutionExceptInt8Backend(left: GenerationJob, right: Genera
     && left.steps === right.steps
     && left.samplerName === right.samplerName
     && left.seed === right.seed
+    && left.fastH3Gb10VsaKernel === right.fastH3Gb10VsaKernel
     && left.fastH3FusedModulation === right.fastH3FusedModulation
     && fastH3VaeBatch(left) === fastH3VaeBatch(right)
     && leftBackend !== rightBackend

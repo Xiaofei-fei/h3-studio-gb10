@@ -39,6 +39,8 @@ export interface ComfyServiceCapabilities {
   /** Optional so a browser can still render while an older origin is rolling out. */
   h3StandardAdaGemmInt8?: ServiceCapability;
   fastH3Vsa: ServiceCapability;
+  /** Optional so a browser can still render while an older origin is rolling out. */
+  fastH3Gb10VsaKernel?: ServiceCapability;
   fastH3CublasInt8: ServiceCapability;
   /** Optional so a browser can still render while an older origin is rolling out. */
   fastH3AdaGemmInt8?: ServiceCapability;
@@ -84,6 +86,7 @@ export interface GenerationForm {
   vaeTileBatch: boolean;
   h3StandardCublasInt8: boolean;
   h3StandardAdaGemmInt8: boolean;
+  fastH3Gb10VsaKernel: boolean;
   fastH3CublasInt8: boolean;
   fastH3AdaGemmInt8: boolean;
   fastH3FusedModulation?: boolean;
@@ -140,6 +143,7 @@ export interface GenerationJob extends Omit<GenerationForm,
   | 'vaeTileBatch'
   | 'h3StandardCublasInt8'
   | 'h3StandardAdaGemmInt8'
+  | 'fastH3Gb10VsaKernel'
   | 'fastH3CublasInt8'
   | 'fastH3AdaGemmInt8'
   | 'fastH3FusedModulation'
@@ -159,6 +163,7 @@ export interface GenerationJob extends Omit<GenerationForm,
   vaeTileBatch?: boolean;
   h3StandardCublasInt8?: boolean;
   h3StandardAdaGemmInt8?: boolean;
+  fastH3Gb10VsaKernel?: boolean;
   fastH3CublasInt8?: boolean;
   fastH3AdaGemmInt8?: boolean;
   fastH3FusedModulation?: boolean;
@@ -217,6 +222,7 @@ export const DEFAULT_FORM: GenerationForm = {
   vaeTileBatch: false,
   h3StandardCublasInt8: false,
   h3StandardAdaGemmInt8: false,
+  fastH3Gb10VsaKernel: false,
   fastH3CublasInt8: false,
   fastH3AdaGemmInt8: false,
   fastH3FusedModulation: false,

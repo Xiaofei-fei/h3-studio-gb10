@@ -11,7 +11,7 @@
 | 路径 | 目标 | 核心优化 | 适用场景 |
 | --- | --- | --- | --- |
 | **H3 Standard** | 在常规 H3 采样下按需折中速度与质量 | SpargeAttention、跨步缓存、调制融合、Turbo LoRA、VAE 批量解码 | 需要 6–25 步、希望逐项 A/B，或优先保持常规 H3 行为 |
-| **FastH3 VSA** | 使用专门训练的低步数路径降低端到端时延 | 4-step LoRA、VSA 稀疏注意力、常驻 gate、可选 Fused Modulation / GB10 INT8、VAE Tile Batch 1/2/4 | 接受固定 4-step Euler 合同，追求预览或低延迟生成 |
+| **FastH3 VSA** | 使用专门训练的低步数路径降低端到端时延 | 4-step LoRA、VSA 稀疏注意力、常驻 gate、VSA Fused Layout Engine、可选 Fused Modulation / GB10 INT8、VAE Tile Batch（开启固定 batch 4） | 接受固定 4-step Euler 合同，追求预览或低延迟生成 |
 
 两条路径不能把所有开关简单叠加。FastH3 的 LoRA、gate 和 VSA 稀疏率是在固定 4-step Euler 下配套工作的。进入 FastH3 后，服务会自动关闭 Standard 的 SpargeAttention、FirstBlockCache、EasyCache、Fused Modulation 与 Standard VAE Tile Batch。
 
@@ -89,8 +89,9 @@ INT8 ConvRot H3
   → H3VSA（topk=0.10，gate resident）
   → [可选] MiniMaxH3FusedModulation
   → [可选] MiniMaxH3GB10CublasInt8 或 MiniMaxH3GB10AdaGemmInt8
+  → [可选] VSA Fused Layout Engine
   → 固定 simple scheduler + 4-step Euler
-  → [可选] MiniMaxH3VAEDecodeBatched（batch 1 / 2 / 4）
+  → [可选] MiniMaxH3VAEDecodeBatched（VAE Tile Batch 开启时固定 batch 4）
   → 视频 / 音频封装
 ~~~
 
@@ -224,9 +225,9 @@ LoRA:       minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors
 | 路径 | 节点 | tile_batch_size |
 | --- | --- | ---: |
 | H3 Standard | <code>MiniMaxH3VAEDecodeBatched</code> | 2 |
-| FastH3 VSA | <code>MiniMaxH3VAEDecodeBatched</code> | 1、2 或 4（界面可选） |
+| FastH3 VSA | <code>MiniMaxH3VAEDecodeBatched</code> | 4（VAE Tile Batch 开关开启时固定） |
 
-关闭时走普通 <code>VAEDecode</code>。音频仍由 <code>VAEDecodeAudio</code> 处理。
+关闭时走普通 <code>VAEDecode</code>。音频仍由 <code>VAEDecodeAudio</code> 处理。FastH3 前端不再暴露 batch 1 / 2 / 4；开启 <strong>VAE Tile Batch</strong> 即写入 batch 4，关闭即回退普通解码。服务端仍兼容历史任务中的 1 / 2 / 4 配置，便于回放。
 
 **质量边界**：正确实现时应保持解码语义，但更大 batch 会提高显存峰值。启用后应检查全片，而不是只看前几帧；若 OOM 或远端节点版本不兼容，回退到普通解码。
 
@@ -344,7 +345,7 @@ seed：2026090201
 
 ### 5.5 FastH3 VAE Tile Batch 4
 
-FastH3 的解码优化与 Standard 相同，但把 tile batch 从 2 提升到 4。FastH3 的去噪步数更短，VAE 解码更可能成为端到端尾部；GB10 有足够显存时，batch 4 有机会进一步缩短解码。
+FastH3 的解码优化与 Standard 相同，但把 tile batch 从 2 提升到 4。前端仅保留一个 <strong>VAE Tile Batch</strong> 开关：开启固定 batch 4，关闭回退普通解码。FastH3 的去噪步数更短，VAE 解码更可能成为端到端尾部；GB10 有足够显存时，batch 4 有机会进一步缩短解码。
 
 它与 cuBLAS INT8 独立。测试 cuBLAS 的单独收益时，基线与优化组必须保持 VAE Tile Batch 状态相同；前端的历史对比正是按此条件筛选。
 
@@ -364,7 +365,8 @@ flowchart TD
     I --> J[H3VSA + resident gate]
     J --> K{可选}
     K --> L[GB10 cuBLAS INT8]
-    K --> M[VAE Tile Batch 4]
+    K --> M[VSA Fused Layout Engine]
+    K --> N[VAE Tile Batch：开启固定 batch 4]
 ~~~
 
 | 规则 | 原因 |
@@ -430,8 +432,9 @@ steps、sampler、seed、VAE Tile Batch 开关
 | Turbo LoRA | 强度 1.0，固定 8 step | 低步数细节与时序波动 |
 | Standard VAE batch | batch 2 | 显存峰值、节点兼容性 |
 | FastH3 VSA | LoRA 1.0，topk 0.10，min_tokens 4096，resident | 稀疏近似，额外约 3.6 GB 显存 |
+| VSA Fused Layout Engine | GB10 + CUDA BF16 + 合法 VSA 形状 | 不满足条件时回退原 H3VSA 布局路径 |
 | GB10 cuBLAS INT8 | qkv_out_mlp，force_full_load=false | 仅当前 GB10 后端组合支持 |
-| FastH3 VAE batch | batch 1 / 2 / 4 | batch 越大，显存峰值越高；需按端到端时间和 OOM 风险选择 |
+| FastH3 VAE Tile Batch | 单一开关；开启 batch 4，关闭原生解码 | batch 4 显存峰值更高；需按端到端时间和 OOM 风险选择 |
 
 ## 10. 代码映射
 
@@ -499,7 +502,7 @@ steps、sampler、seed、VAE Tile Batch 开关
 | 做质量参考、排查抖动来源 | Standard 稠密路径，关闭缓存与稀疏注意力。 |
 | 需要保守加速且不减步 | 先试 Fused Modulation，再试 FirstBlockCache Safe；每次只加一个变量。 |
 | 需要快速预览 | Turbo 8-step 或 FastH3 VSA；二者是不同模型合同，不要混作内核 A/B。 |
-| FastH3 内继续降低延迟 | 保持 VSA resident；先单独验证 Fused Modulation、cuBLAS INT8 或 AdaGEMM，再比较 VAE Tile Batch 1 / 2 / 4。 |
+| FastH3 内继续降低延迟 | 保持 VSA resident；先单独验证 VSA Fused Layout Engine、Fused Modulation、cuBLAS INT8 或 AdaGEMM，再比较 VAE Tile Batch 开 / 关。 |
 | 需要严格无损 | 优先 cuBLAS INT8 / 可能的等价 VAE 批处理，并用 raw RGB/PCM checksum 验证；不要依赖稀疏或跨步缓存。 |
 
 当前服务已把可控的服务级优化暴露为开关，但不意味着每一种组合都必然更快。注意力被加速后，解码、文本编码、IO 或模型加载可能成为新瓶颈；显存接近上限时，更大的 VAE batch 也可能变慢或 OOM。最终结论必须来自同配置、同热态、重复运行的端到端数据。

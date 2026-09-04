@@ -81,13 +81,13 @@ INT8 ConvRot H3
   → H3VSA（topk = 0.10，resident gate）
   → [可选] Fused Modulation
   → [可选] GB10 cuBLAS INT8 或 AdaGEMM INT8
-  → [可选] GB10 VSA layout packer
+  → [可选] VSA Fused Layout Engine
   → 固定 simple scheduler + 4-step Euler
-  → [可选] VAE Tile Batch 1 / 2 / 4
+  → [可选] VAE Tile Batch（开启固定 batch 4）
   → 视频 / 音频封装
 ~~~
 
-FastH3 固定使用匹配的 LoRA、4 个 Euler step、VSA gate 和稀疏率。它会清空 Standard 的缓存、SpargeAttention、Turbo 和 Standard VAE batch 字段，避免把两套近似策略混在一起。这样做同时保证速度归因、质量归因和同 seed 复现实验可解释。
+FastH3 固定使用匹配的 LoRA、4 个 Euler step、VSA gate 和稀疏率。它会清空 Standard 的缓存、SpargeAttention、Turbo 和 Standard VAE batch 字段，避免把两套近似策略混在一起。前端将 <strong>VSA Fused Layout Engine</strong> 与 <strong>VAE Tile Batch</strong> 分别暴露为独立开关；后者开启时固定 batch 4，关闭时回退普通解码。这样做同时保证速度归因、质量归因和同 seed 复现实验可解释。
 
 ## 4. 已接入的优化技术
 
@@ -111,8 +111,8 @@ FirstBlockCache 与 EasyCache 互斥。两者都在控制跨 step 复用，同�
 | Fused Modulation | scale、shift、gate 等小算子的 launch 与中间张量开销 | 合并相邻调制操作，减少中间读写与 kernel 边界 | <code>MiniMaxH3FusedModulation</code> 放在缓存后、Sparge 前；FastH3 也可在 VSA 后单独启用 | 目标是接近等价的执行重排；底层 node 不在本仓库托管，仍需数值和成片 A/B |
 | GB10 cuBLAS INT8 | QKV、attention 输出和 MLP 的 INT8 投影热点 | 对既有 ConvRot INT8 GEMM 改用适合 GB10 的 cuBLASLt 分派，不重新量化权重 | <code>MiniMaxH3GB10CublasInt8</code> 覆盖 <code>qkv_proj</code>、<code>out_proj</code>、<code>mlp</code>；通过 capability gate 后才开放 | FastH3 已有一组输出一致的 11.58% 受控提升；升级驱动、PyTorch、ComfyUI 或节点后需重验 |
 | AdaGEMM INT8 | 同一组投影热点的替代后端 | 依据 token / 通道量化和矩阵形状选择内核 | <code>MiniMaxH3GB10AdaGemmInt8</code>，与 cuBLAS 为单选项 | 当前为实验路径。已验证 GB10 库覆盖实测矩阵形状，但 packing cache 没有端到端收益 |
-| GB10 VSA layout packer | VSA 中 Q/K/V reshape、copy 与 padding 的数据移动 | 直接构造 VSA 所需的最终 padded layout，保留原 VSA 数学、gate、RoPE 和投影 | <code>H3StudioFastH3GB10VSA</code> 仅用于 FastH3；放在 INT8 补丁之后，未知输入回退原 forward | 实验性、lossless-first 实现；尚无可对外承诺的端到端加速数据，必须先做 checksum 与 p50 / p95 |
-| FastH3 kernel profiler | 找出 VSA 内部实际热点 | 用 CUDA event 记录 QKV、gate、layout、VSA 和 out projection 分段时间 | <code>H3StudioFastH3Profile</code>，只记录聚合计时，不记录 prompt 或生成内容 | 诊断工具，不是优化；与 layout packer 互斥，避免计时路径改变被误判为加速 |
+| VSA Fused Layout Engine | VSA 中 Q/K/V reshape、copy 与 padding 的数据移动 | 直接构造 VSA 所需的最终 padded layout，保留原 VSA 数学、gate、RoPE 和投影 | <code>H3StudioFastH3GB10VSA</code> 仅用于 FastH3；放在 INT8 补丁之后，未知输入回退原 forward | 等价布局实现；尚无可对外承诺的端到端加速数据，必须先做 checksum 与 p50 / p95 |
+| FastH3 kernel profiler | 找出 VSA 内部实际热点 | 用 CUDA event 记录 QKV、gate、layout、VSA 和 out projection 分段时间 | <code>H3StudioFastH3Profile</code>，只记录聚合计时，不记录 prompt 或生成内容 | 诊断工具，不是优化；与 VSA Fused Layout Engine 互斥，避免计时路径改变被误判为加速 |
 
 cuBLAS INT8 与 AdaGEMM INT8 不能同时开启。它们覆盖同一组模型投影；并行叠加不会得到相加收益，反而会使实际 kernel 路径不可解释。
 
@@ -122,7 +122,7 @@ cuBLAS INT8 与 AdaGEMM INT8 不能同时开启。它们覆盖同一组模型投
 | --- | --- | --- | --- | --- |
 | Turbo LoRA 8-step | 直接减步造成的结构、纹理和时序退化 | 通过训练得到的低秩增量适配较短去噪轨迹 | <code>LoraLoaderModelOnly</code> 加载匹配 LoRA，强度固定 1.0，服务把 step 固定为 8 | 不是通用跳步；应与 10 step 或更高的 Standard 基线做时序对照 |
 | FastH3 4-step LoRA | FastH3 的低步数合同 | 将基础 H3 适配到 VSA 训练时的 4-step Euler 轨迹 | <code>fasth3_vsa_4-steps-v5.safetensors</code>，强度 1.0，simple scheduler + Euler | 适合低延迟预览；不能把其总时延误归因为某一个 kernel |
-| VAE Tile Batch | 去噪提速后显现的视频解码尾部 | 将多个独立视频 tile 组成小 batch 解码，提高吞吐 | <code>MiniMaxH3VAEDecodeBatched</code>；Standard 为 batch 2，FastH3 可选 1 / 2 / 4 | 正确实现不改变 latent 或采样轨迹，但显存峰值会上升；应对 RGB 输出和整片时序做检查 |
+| VAE Tile Batch | 去噪提速后显现的视频解码尾部 | 将多个独立视频 tile 组成小 batch 解码，提高吞吐 | <code>MiniMaxH3VAEDecodeBatched</code>；Standard 为 batch 2，FastH3 前端开启时固定 batch 4、关闭时普通解码 | 正确实现不改变 latent 或采样轨迹，但显存峰值会上升；应对 RGB 输出和整片时序做检查 |
 | Music3 tiled audio decode | 长音频 VAE 解码的峰值压力 | 带 overlap 地分块解码音频 latent | <code>VAEDecodeAudioTiled</code>，tile 512、overlap 64，默认开启 | 主要改善稳定性 / 显存管理，不应当作 H3 视频 DiT 的加速数据 |
 
 ### 4.4 不应计入最终推理加速的能力
@@ -205,7 +205,7 @@ seed、参考素材、VAE batch、其他所有优化开关
 | 质量基线 / 问题定位 | H3 Standard 稠密后端，关闭缓存与 Sparge | 用于建立参考，不以最快时间为目标 |
 | 常规质量与温和加速 | Standard + Sparge Balanced；若仍需加速，再试 FirstBlockCache Safe | 先避免 EasyCache，逐项判断时序稳定性 |
 | 低步数预览 | Turbo LoRA 8-step 或 FastH3 VSA | 两者属于不同采样合同，应分别与各自基线比较 |
-| FastH3 低延迟 A/B | VSA resident baseline → 单独开启 cuBLAS INT8 → 固定 VAE batch | 当前唯一已有严格输出校验的 FastH3 增益是 cuBLAS 试验 |
+| FastH3 低延迟 A/B | VSA resident baseline → 单独开启 VSA Fused Layout Engine 或 cuBLAS INT8 → 固定 VAE Tile Batch 开关状态 | 当前唯一已有严格输出校验的 FastH3 增益是 cuBLAS 试验 |
 | 视频解码尾部优化 | 固定 DiT 配置，仅切换 VAE Tile Batch | 同时记录解码时间、峰值显存和视频输出 |
 | 高分辨率交付 | 将低原生分辨率 + 超分作为产品路径单独评估 | 不将其与同原生分辨率的 kernel 优化合并为一个倍数 |
 

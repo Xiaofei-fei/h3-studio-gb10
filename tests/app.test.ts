@@ -25,6 +25,7 @@ const allServicesAvailable: ComfyServiceCapabilities = {
   h3StandardCublasInt8: { available: true },
   h3StandardAdaGemmInt8: { available: true },
   fastH3Vsa: { available: true },
+  fastH3Gb10VsaKernel: { available: true },
   fastH3CublasInt8: { available: true },
   fastH3AdaGemmInt8: { available: true },
   fastH3VaeTileBatch: { available: true },
@@ -355,6 +356,27 @@ describe('H3 Studio BFF', () => {
       samplerName: 'euler',
     });
     expect(response.body).not.toHaveProperty('fastH3Profile');
+  });
+
+  it('persists the lossless FastH3 GB10 VSA layout kernel opt-in', async () => {
+    const client = fakeClient();
+
+    const response = await request(createApp(client))
+      .post('/api/jobs')
+      .send({
+        ...validRequest,
+        service: 'fasth3_vsa',
+        steps: 4,
+        samplerName: 'euler',
+        fastH3Gb10VsaKernel: true,
+      });
+
+    expect(response.status).toBe(202);
+    expect(response.body.fastH3Gb10VsaKernel).toBe(true);
+    expect(client.prompts[0]['23']).toMatchObject({
+      class_type: 'H3StudioFastH3GB10VSA',
+      inputs: { model: ['2', 0], enabled: true },
+    });
   });
 
   it('preserves the VAE Tile Batch opt-in from the API job to the Comfy workflow', async () => {
