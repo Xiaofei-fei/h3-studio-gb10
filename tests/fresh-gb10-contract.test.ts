@@ -23,6 +23,18 @@ describe('fresh GB10 deployment contract', () => {
     expect(compose).not.toContain('network_mode: host');
   });
 
+  it('pins fresh-host defaults to the audited immutable application and runtime images', () => {
+    const environment = source('.env.fresh.example');
+    expect(environment).toContain('H3_STUDIO_APP_IMAGE=ghcr.io/xiaofei-fei/h3-studio-gb10/app@sha256:d58c07b412a30f154c4c9a740697ae789c3d2be2af13fe29c0120a18ab801ea5');
+    expect(environment).toContain('H3_STUDIO_COMFY_IMAGE=ghcr.io/xiaofei-fei/h3-studio-gb10/comfy-runtime@sha256:7d004a5c96c250d279ab4c227ca92f3af8a4699444d4d6dfa1e01f5b2c323609');
+    expect(environment).not.toContain('/app:main');
+  });
+
+  it('accepts OCI digest image references during bootstrap validation', () => {
+    const bootstrap = source('scripts/bootstrap-fresh-gb10.sh');
+    expect(bootstrap).toContain('^[A-Za-z0-9./:@_-]+$');
+  });
+
   it('provides a host bootstrap that verifies Docker GPU access, extracts the compatible venv, and downloads core assets from ModelScope', () => {
     const path = 'scripts/bootstrap-fresh-gb10.sh';
     expect(existsSync(projectFile(path))).toBe(true);
@@ -81,6 +93,11 @@ describe('fresh GB10 deployment contract', () => {
     expect(script).toContain('compose exec -T h3-studio node -e');
     expect(script).toContain('http://comfyui:8188');
     expect(script).not.toContain('curlimages/curl');
+  });
+
+  it('explains how a non-root administrator prepares the default writable deployment directory', () => {
+    const deploymentGuide = source('docs/fresh-gb10-deployment.md');
+    expect(deploymentGuide).toContain('sudo install -d -m 0750 -o "$USER" -g "$(id -gn)" /opt/h3-studio');
   });
 
   it('keeps model weights and local credentials out of every Docker build context', () => {

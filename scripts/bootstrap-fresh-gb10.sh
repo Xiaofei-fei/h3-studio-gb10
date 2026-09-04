@@ -78,7 +78,7 @@ require_absolute_directory() {
 
 require_image_name() {
   local name="$1" value="${!1:-}"
-  [[ "$value" =~ ^[A-Za-z0-9./:_-]+$ ]] || die "$name 必须是无空格的镜像引用。"
+  [[ "$value" =~ ^[A-Za-z0-9./:@_-]+$ ]] || die "$name 必须是无空格的镜像引用。"
 }
 
 require_port() {

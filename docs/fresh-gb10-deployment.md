@@ -19,7 +19,7 @@
 ## 前置条件
 
 1. GB10 已安装可工作的 NVIDIA 驱动，`nvidia-smi` 能显示 GPU。
-2. Docker Engine 与 Docker Compose v2 已安装。
+2. Docker Engine、Docker Compose v2 与 Git 已安装。
 3. NVIDIA Container Toolkit 已配置到 Docker；安装方式以 [NVIDIA 官方指南](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) 为准。若机器只有驱动和 Docker，可让引导脚本按该官方流程安装并配置（会修改 Docker 配置并重启 Docker）：
 
 ```bash
@@ -39,15 +39,16 @@ docker login ghcr.io
 
 ## 一次性部署
 
-在新 GB10 上克隆仓库到计划的运行目录：
+在新 GB10 上克隆仓库到计划的运行目录。默认示例使用 `/opt/h3-studio`；普通管理员先把该目录交给当前用户，避免后续模型、输出目录因权限不足失败：
 
 ```bash
+sudo install -d -m 0750 -o "$USER" -g "$(id -gn)" /opt/h3-studio
 git clone https://github.com/Xiaofei-fei/h3-studio-gb10.git /opt/h3-studio
 cd /opt/h3-studio
 cp .env.fresh.example .env.fresh
 ```
 
-编辑 `.env.fresh` 中的绝对路径；默认值已按 `/opt/h3-studio` 布局设置。发布的运行时与 Node 应用均使用镜像内稳定的 `1000:1000` 服务账号。引导脚本会只调整 H3 Studio 的输入、输出和 worker 状态目录为该账号，不会改动模型文件的所有者。
+编辑 `.env.fresh` 中的绝对路径；默认值已按 `/opt/h3-studio` 布局设置，并固定到本次审计的应用和 ComfyUI runtime digest。发布的运行时与 Node 应用均使用镜像内稳定的 `1000:1000` 服务账号。引导脚本会只调整 H3 Studio 的输入、输出和 worker 状态目录为该账号，不会改动模型文件的所有者。若改用其他目录，需一致替换 `.env.fresh` 内四个 `H3_STUDIO_*_DIR/ROOT` 路径。
 
 执行引导：
 
@@ -85,7 +86,7 @@ FastH3 的 LoRA 与 gate 必须来自同一份授权交付包。不要替换成�
 
 该检查确认 ComfyUI、H3 Standard、参考模式、Music3、TAEH3、Sparge、VAE Tile Batch 和 RealESRGAN 的节点、模型下拉项及 BFF 健康状态。完成后应在界面实际提交一次固定 seed 的 H3 Standard 样例和一次 Music3 样例，确认所选模型许可证、显存余量与画面质量符合预期。
 
-升级应用镜像后执行：
+升级到新的已审计版本时，先在 `.env.fresh` 中显式更新应用和 runtime 的 digest，再执行：
 
 ```bash
 docker compose --env-file .env.fresh -f docker-compose.fresh-gb10.yml pull
@@ -101,7 +102,7 @@ docker compose --env-file .env.fresh -f docker-compose.fresh-gb10.yml down
 
 ## 运行时镜像发布
 
-`ghcr.io/xiaofei-fei/h3-studio-gb10/comfy-runtime:gb10-v1` 由一个已验证的 GB10 运行环境制作，包含 ComfyUI 代码、Python venv、节点实现，以及 RealESRGAN worker 所需的 FastAPI/Uvicorn 控制面依赖；不含模型、输入、输出、`.env`、Git 历史或 secret 文件。镜像直接启动已验证的 ComfyUI 与 venv，不运行基础镜像内会更新代码或 Python 包的安装脚本。发布脚本会在 Docker build 前再次拒绝 `.safetensors`、`.ckpt`、`.pth`、`.pt`、`.onnx` 和敏感文件名。
+`ghcr.io/xiaofei-fei/h3-studio-gb10/comfy-runtime:gb10-v1` 由一个已验证的 GB10 运行环境制作，包含 ComfyUI 代码、Python venv、节点实现，以及 RealESRGAN worker 所需的 FastAPI/Uvicorn 控制面依赖；不含模型、输入、输出、`.env`、Git 历史或 secret 文件。镜像直接启动已验证的 ComfyUI 与 venv，不运行基础镜像内会更新代码或 Python 包的安装脚本。发布脚本会在 Docker build 前再次拒绝 `.safetensors`、`.ckpt`、`.pth`、`.pt`、`.onnx` 和敏感文件名。新机模板不依赖这个可变 tag，而是使用已验证的 digest。
 
 只有维护运行时的管理员才执行以下命令；先用 `--no-push` 在隔离标签上检查，再推送 GHCR：
 

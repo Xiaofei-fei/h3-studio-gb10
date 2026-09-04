@@ -77,8 +77,8 @@ FlashVSR 的 worker 还会以固定提交构建源码依赖；`npm run deploy:gb
 
 | 镜像 / 文件 | 获取方式 | 说明 |
 | --- | --- | --- |
-| `ghcr.io/xiaofei-fei/h3-studio-gb10/comfy-runtime:gb10-v1` | 私有 GitHub Container Registry 包；先执行 `docker login ghcr.io`，并获得该包的读取权限。 | 全新 GB10 部署使用的 ComfyUI 运行时，包含固定的 ARM64 ComfyUI、venv 和自定义节点，**不含模型权重、输入、输出或凭据**。部署步骤见[全新 GB10 部署](fresh-gb10-deployment.md)。 |
-| `ghcr.io/xiaofei-fei/h3-studio-gb10/app:main` | 私有 GitHub Container Registry 包；与上项使用同一登录。 | H3 Studio 的 ARM64 应用镜像，由 GitHub Actions 在主分支更新时发布。 |
+| `ghcr.io/xiaofei-fei/h3-studio-gb10/comfy-runtime@sha256:7d004a5c96c250d279ab4c227ca92f3af8a4699444d4d6dfa1e01f5b2c323609` | 私有 GitHub Container Registry 包；先执行 `docker login ghcr.io`，并获得该包的读取权限。 | 全新 GB10 默认使用的已审计 ComfyUI 运行时（发布 tag 为 `gb10-v1`），包含固定的 ARM64 ComfyUI、venv 和自定义节点，**不含模型权重、输入、输出或凭据**。部署步骤见[全新 GB10 部署](fresh-gb10-deployment.md)。 |
+| `ghcr.io/xiaofei-fei/h3-studio-gb10/app@sha256:d58c07b412a30f154c4c9a740697ae789c3d2be2af13fe29c0120a18ab801ea5` | 私有 GitHub Container Registry 包；与上项使用同一登录。 | 全新 GB10 默认使用的已审计 ARM64 应用镜像（构建 tag 为 `sha-1af695fe3283ff489fa7a36e67699f0ff32b9771`）；`app:main` 仅用于明确升级后跟踪最新版本。 |
 | `node:22-bookworm-slim-linuxarm64` | [Node 官方镜像页](https://hub.docker.com/_/node)。本仓库 Dockerfile 使用的镜像引用为 `swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/node:22-bookworm-slim-linuxarm64`。 | 构建 `h3-studio:gb10` 时自动拉取；网络受限时可先执行 `docker pull` 预热。 |
 | `comfyui-gb10:v2` | **没有公开下载链接记录。** | 仅用于旧的已有 ComfyUI 部署，或制作 `comfy-runtime` 时作为受控基础镜像；全新部署不要求该镜像已存在。 |
 | `h3-studio:gb10`、`h3-studio-flashvsr:gb10`、`h3-studio-realesrgan:gb10` | 本仓库构建，不从远端 pull。 | 在 GB10 执行 `docker compose --env-file .env -f docker-compose.gb10.yml build`。 |
