@@ -64,6 +64,7 @@ npm run deploy:gb10
 - [全新 GB10 部署](docs/fresh-gb10-deployment.md)：仅有驱动和 Docker 时的一次性引导、验收与运行时镜像。
 - [系统架构](docs/architecture.md)：浏览器、BFF、ComfyUI、worker 和端口边界。
 - [推理优化](docs/optimization-guide.md)：三种模式的原理、互斥关系、质量与性能评估。
+- [推理优化技术说明与 GB10 对照](docs/h3-inference-optimization-technical-report.md)：已接入技术的原理、实现、实测结果与外部单机 GB10 基准对照。
 - [模型与节点清单](docs/model-and-node-manifest.md)：外部依赖、能力协商和校验边界。
 - [大文件下载与预置](docs/downloads.md)：H3、Music3、LoRA、VAE、增强模型、镜像与 FlashVSR 源码的下载入口。
 - [视频增强](docs/upscale.md)：历史视频、RealESRGAN 2K、FlashVSR 与停止任务。
