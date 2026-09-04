@@ -13,7 +13,7 @@
 | Turbo LoRA 8-step、TAEH3 预览 | 已包含 | 引导脚本会下载公开资产；TAEH3 只影响实时预览。 |
 | MiniMax Music3 | 已包含 | 下载 Music3 三个核心文件后自动启用。 |
 | RealESRGAN x2 / 2K 路径 | 已包含 | 以独立低显存 worker 运行，并校验官方 SHA-256。 |
-| FastH3 VSA | 需授权资产 | LoRA 与 gate 没有可复现的公开来源；用 `--private-assets` 从受控交付包安装。 |
+| FastH3 VSA | 已包含（公开资产） | 引导脚本下载 ComfyUI 格式的 4-step LoRA 与 VSA gate，并校验 SHA-256。 |
 | FlashVSR | 可选实验项 | 仍需本机编译和兼容性 gate；核心部署不会因它失败而阻断。 |
 
 ## 前置条件
@@ -35,7 +35,7 @@ docker login ghcr.io
 
 登录 token 需要 `read:packages` 权限；制作并推送 `comfy-runtime` 的维护账号还需要 `write:packages`。若使用 GitHub CLI 管理当前登录，可在有用户确认的终端中执行 `gh auth refresh -s read:packages -s write:packages` 追加权限。不要把 token 写进 `.env.fresh`、shell 历史或仓库。
 
-5. 确认模型许可证允许下载与使用。引导脚本使用魔搭下载公开模型；若网络受限，可先在其他机器下载并传入同样的目录结构。
+5. 确认模型许可证允许下载与使用。H3/Music3 核心模型从魔搭下载；FastH3 使用公开的 ComfyUI 转换产物。若网络受限，可先在其他机器下载并传入同样的目录结构。
 
 ## 一次性部署
 
@@ -56,21 +56,25 @@ cp .env.fresh.example .env.fresh
 ./scripts/bootstrap-fresh-gb10.sh --env .env.fresh
 ```
 
-脚本依次验证 GPU 容器访问、拉取私有镜像、从运行时镜像提取 worker 所需的 venv、从魔搭下载核心模型、下载 TAEH3 和 RealESRGAN、构建 worker、启动服务并验收节点和能力。成功后界面仅绑定在本机：`http://127.0.0.1:5174`。
+脚本依次验证 GPU 容器访问、拉取私有镜像、从运行时镜像提取 worker 所需的 venv、从魔搭下载核心模型、下载 TAEH3、RealESRGAN 与公开 FastH3 VSA 资产、构建 worker、启动服务并验收节点和能力。成功后界面仅绑定在本机：`http://127.0.0.1:5174`。
 
 若模型已经由管理员预置，使用 `--skip-model-download`；脚本会在启动前逐个检查所需文件，缺失时直接退出而不会产生半可用服务。
 镜像和模型均已预置时，后续结构验收只在现有容器的桥接网络内请求服务，不会为检查额外拉取 Docker Hub 工具镜像。
 
 ## FastH3 与离线传输
 
-FastH3 的 LoRA 与 gate 必须来自同一份授权交付包。不要替换成同名、不同版本的文件：
+FastH3 不需要额外授权包。默认引导会下载公开的、已转换为 ComfyUI 格式的 LoRA 与 gate，并分别核对 SHA-256。二者必须来自同一发布版本；不要用同名的其他 VSA gate 替换。
+
+魔搭公开提供 FastVideo 的原始 `vsa-datafree/adapter_model.safetensors`，可作为溯源和 FastVideo 原生运行的下载入口；它并不是当前 ComfyUI 节点可直接加载的格式。H3 Studio 需要经过 QKV 融合、AdaLN 投影和 gate 拆分后的两个文件，详见[下载清单](downloads.md)。
+
+若 FastH3 文件已在可联网机器上下载完成，可在下载其他核心模型时直接传入本地目录：
 
 ```bash
 ./scripts/bootstrap-fresh-gb10.sh --env .env.fresh \
-  --private-assets /secure/h3-authorized-assets
+  --fasth3-assets /secure/fasth3-public-assets
 ```
 
-离线传输时，把 [下载清单](downloads.md)中列出的模型按相对目录放入 `H3_STUDIO_MODELS_DIR`，并把 `RealESRGAN_x2plus.pth` 放入 `H3_STUDIO_RUNTIME_DIR/realesrgan-models/`。RealESRGAN 必须匹配清单中的 SHA-256。随后运行：
+完全离线传输时，把 [下载清单](downloads.md)中列出的模型按相对目录放入 `H3_STUDIO_MODELS_DIR`，并把 `RealESRGAN_x2plus.pth` 放入 `H3_STUDIO_RUNTIME_DIR/realesrgan-models/`。FastH3 两个文件也须放入 `loras/`。RealESRGAN 与 FastH3 必须匹配清单中的 SHA-256。随后运行：
 
 ```bash
 ./scripts/bootstrap-fresh-gb10.sh --env .env.fresh --skip-model-download

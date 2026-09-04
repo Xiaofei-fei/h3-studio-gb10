@@ -36,7 +36,7 @@ describe('fresh GB10 deployment contract', () => {
     expect(bootstrap).toContain('^[A-Za-z0-9./:@_-]+$');
   });
 
-  it('provides a host bootstrap that verifies Docker GPU access, extracts the compatible venv, and downloads core assets from ModelScope', () => {
+  it('provides a host bootstrap that verifies Docker GPU access, extracts the compatible venv, and downloads the core assets from ModelScope', () => {
     const path = 'scripts/bootstrap-fresh-gb10.sh';
     expect(existsSync(projectFile(path))).toBe(true);
 
@@ -53,6 +53,22 @@ describe('fresh GB10 deployment contract', () => {
     expect(script).toContain('minimax_music3_dit_fp16.safetensors');
     expect(script).toContain('RealESRGAN_x2plus.pth');
     expect(script).toContain('49fafd45f8fd7aa8d31ab2a22d14d91b536c34494a5cfe31eb5d89c2fa266abb');
+  });
+
+  it('offers the public ComfyUI-native FastH3 VSA pair and an offline asset path without an authorization-package requirement', () => {
+    const script = source('scripts/bootstrap-fresh-gb10.sh');
+    const help = execFileSync('bash', ['scripts/bootstrap-fresh-gb10.sh', '--help'], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+    });
+
+    expect(help).toContain('--fasth3-assets DIR');
+    expect(help).not.toContain('--private-assets');
+    expect(script).toContain('barelymining/ComfyUI-MiniMax-H3-FastVideo');
+    expect(script).toContain('fasth3_vsa_4-steps-v5.safetensors');
+    expect(script).toContain('fasth3_vsa_gate.safetensors');
+    expect(script).toContain('70831f37ad1431f0686c8976d3ec949a4359ae67316d654b453d8809517bb268');
+    expect(script).toContain('bf95408e335c4b0d6a1a44946a428a3e12849e6eab2de9566ecedae4a0043420');
   });
 
   it('can publish a sanitized current GB10 runtime without copying model weights or secret files into GHCR', () => {

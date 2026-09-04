@@ -46,16 +46,18 @@ models:
   - id: fasth3-vsa-lora
     file: fasth3_vsa_4-steps-v5.safetensors
     role: FastH3 VSA preview LoRA
-    precision: source-defined
-    source_class: approved FastH3 package
-    sha256: verify with source before deployment
+    precision: FP32
+    source_class: public ComfyUI-converted FastH3 VSA artifact
+    source_url: https://huggingface.co/barelymining/ComfyUI-MiniMax-H3-FastVideo/resolve/main/fasth3_vsa_4-steps-v5.safetensors
+    sha256: 70831f37ad1431f0686c8976d3ec949a4359ae67316d654b453d8809517bb268
     redistributable: false
   - id: fasth3-vsa-gate
     file: fasth3_vsa_gate.safetensors
     role: FastH3 VSA routing gate
-    precision: source-defined
-    source_class: approved FastH3 package
-    sha256: verify with source before deployment
+    precision: BF16
+    source_class: public ComfyUI-converted FastH3 VSA artifact
+    source_url: https://huggingface.co/barelymining/ComfyUI-MiniMax-H3-FastVideo/resolve/main/fasth3_vsa_gate.safetensors
+    sha256: bf95408e335c4b0d6a1a44946a428a3e12849e6eab2de9566ecedae4a0043420
     redistributable: false
   - id: music3-dit
     file: minimax_music3_dit_fp16.safetensors

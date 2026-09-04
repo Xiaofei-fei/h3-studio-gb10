@@ -12,13 +12,17 @@ readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly REPO_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 readonly H3_MODELSCOPE_MODEL="Comfy-Org/MiniMax-H3"
 readonly MUSIC3_MODELSCOPE_MODEL="Comfy-Org/MiniMax-Music-3"
+readonly FASTH3_COMFY_REPOSITORY="barelymining/ComfyUI-MiniMax-H3-FastVideo"
+readonly FASTH3_COMFY_DOWNLOAD_BASE="https://huggingface.co/${FASTH3_COMFY_REPOSITORY}/resolve/main"
+readonly FASTH3_LORA_SHA256="70831f37ad1431f0686c8976d3ec949a4359ae67316d654b453d8809517bb268"
+readonly FASTH3_GATE_SHA256="bf95408e335c4b0d6a1a44946a428a3e12849e6eab2de9566ecedae4a0043420"
 readonly REALESRGAN_SHA256="49fafd45f8fd7aa8d31ab2a22d14d91b536c34494a5cfe31eb5d89c2fa266abb"
 readonly RUNTIME_UID=1000
 readonly RUNTIME_GID=1000
 
 ENV_FILE="$REPO_DIR/.env.fresh"
 SKIP_MODEL_DOWNLOAD=0
-PRIVATE_ASSETS_DIR=""
+FASTH3_ASSETS_DIR=""
 INSTALL_NVIDIA_TOOLKIT=0
 
 usage() {
@@ -27,9 +31,10 @@ Usage: scripts/bootstrap-fresh-gb10.sh [options]
 
 Options:
   --env FILE                 Deployment environment file (default: .env.fresh)
-  --skip-model-download      Do not contact ModelScope/GitHub; validate/start
+  --skip-model-download      Do not contact model hosts; validate/start
                              with model files that are already present.
-  --private-assets DIR       Copy the authorized FastH3 LoRA and gate from DIR.
+  --fasth3-assets DIR        Copy a pre-downloaded public FastH3 LoRA and gate
+                             from DIR instead of downloading them.
   --install-nvidia-container-toolkit
                              Install and configure the NVIDIA Container Toolkit
                              for Docker on Ubuntu/Debian (requires sudo).
@@ -249,6 +254,24 @@ download_atomic() {
   mv -- "$temporary" "$destination"
 }
 
+download_verified() {
+  local destination_dir="$1" filename="$2" url="$3" expected_sha256="$4"
+  local destination="$destination_dir/$filename" actual rejected
+
+  if [[ -f "$destination" ]]; then
+    actual="$(sha256sum "$destination" | awk '{print $1}')"
+    [[ "$actual" == "$expected_sha256" ]] && return
+    rejected="$destination.invalid.$(date +%Y%m%d%H%M%S)"
+    log "已有 $filename 校验失败，已保留为 $rejected。"
+    mv -- "$destination" "$rejected"
+  fi
+
+  download_atomic "$destination_dir" "$filename" "$url"
+  actual="$(sha256sum "$destination" | awk '{print $1}')"
+  [[ "$actual" == "$expected_sha256" ]] \
+    || die "$filename SHA-256 校验失败。"
+}
+
 download_auxiliary_models() {
   local realesrgan_dir="$H3_STUDIO_RUNTIME_DIR/realesrgan-models"
   local realesrgan_path="$realesrgan_dir/RealESRGAN_x2plus.pth"
@@ -268,18 +291,35 @@ download_auxiliary_models() {
     || die 'RealESRGAN_x2plus.pth SHA-256 校验失败。'
 }
 
-install_private_fasth3_assets() {
-  [[ -n "$PRIVATE_ASSETS_DIR" ]] || return
-  [[ -d "$PRIVATE_ASSETS_DIR" ]] || die "FastH3 授权包目录不存在：$PRIVATE_ASSETS_DIR"
+install_fasth3_assets() {
+  local lora_dir="$H3_STUDIO_MODELS_DIR/loras"
   local filename destination
+
+  if [[ -z "$FASTH3_ASSETS_DIR" ]]; then
+    log '下载公开 FastH3 VSA ComfyUI LoRA 与 gate。'
+    download_verified "$lora_dir" fasth3_vsa_4-steps-v5.safetensors \
+      "$FASTH3_COMFY_DOWNLOAD_BASE/fasth3_vsa_4-steps-v5.safetensors" \
+      "$FASTH3_LORA_SHA256"
+    download_verified "$lora_dir" fasth3_vsa_gate.safetensors \
+      "$FASTH3_COMFY_DOWNLOAD_BASE/fasth3_vsa_gate.safetensors" \
+      "$FASTH3_GATE_SHA256"
+    return
+  fi
+
+  [[ -d "$FASTH3_ASSETS_DIR" ]] || die "FastH3 资产目录不存在：$FASTH3_ASSETS_DIR"
   for filename in fasth3_vsa_4-steps-v5.safetensors fasth3_vsa_gate.safetensors; do
-    [[ -f "$PRIVATE_ASSETS_DIR/$filename" ]] \
-      || die "授权 FastH3 包缺少：$filename"
-    destination="$H3_STUDIO_MODELS_DIR/loras/$filename"
-    install -d -m 0750 "$H3_STUDIO_MODELS_DIR/loras"
-    install -m 0640 "$PRIVATE_ASSETS_DIR/$filename" "$destination"
+    [[ -f "$FASTH3_ASSETS_DIR/$filename" ]] \
+      || die "FastH3 资产目录缺少：$filename"
+    destination="$lora_dir/$filename"
+    install -d -m 0750 "$lora_dir"
+    install -m 0640 "$FASTH3_ASSETS_DIR/$filename" "$destination"
   done
-  log '已安装授权 FastH3 LoRA 与 gate；不会把它们纳入容器镜像。'
+
+  [[ "$(sha256sum "$lora_dir/fasth3_vsa_4-steps-v5.safetensors" | awk '{print $1}')" == "$FASTH3_LORA_SHA256" ]] \
+    || die '离线 FastH3 LoRA SHA-256 校验失败。'
+  [[ "$(sha256sum "$lora_dir/fasth3_vsa_gate.safetensors" | awk '{print $1}')" == "$FASTH3_GATE_SHA256" ]] \
+    || die '离线 FastH3 gate SHA-256 校验失败。'
+  log '已安装公开 FastH3 VSA LoRA 与 gate；不会把它们纳入容器镜像。'
 }
 
 ensure_model_layout() {
@@ -290,6 +330,8 @@ ensure_model_layout() {
     vae/minimax_h3_video_vae_fp16.safetensors
     vae/minimax_h3_audio_vae_fp32.safetensors
     loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors
+    loras/fasth3_vsa_4-steps-v5.safetensors
+    loras/fasth3_vsa_gate.safetensors
     diffusion_models/minimax_music3_dit_fp16.safetensors
     text_encoders/minimax_music3_text_encoder_pruned_int8_convrot.safetensors
     vae/minimax_music3_dav.safetensors
@@ -320,9 +362,9 @@ while (( $# > 0 )); do
       SKIP_MODEL_DOWNLOAD=1
       shift
       ;;
-    --private-assets)
-      [[ $# -ge 2 ]] || die '--private-assets 需要一个目录。'
-      PRIVATE_ASSETS_DIR="$2"
+    --fasth3-assets)
+      [[ $# -ge 2 ]] || die '--fasth3-assets 需要一个目录。'
+      FASTH3_ASSETS_DIR="$2"
       shift 2
       ;;
     --install-nvidia-container-toolkit)
@@ -349,8 +391,10 @@ extract_runtime_venv
 if (( SKIP_MODEL_DOWNLOAD == 0 )); then
   download_core_models
   download_auxiliary_models
+  install_fasth3_assets
+elif [[ -n "$FASTH3_ASSETS_DIR" ]]; then
+  install_fasth3_assets
 fi
-install_private_fasth3_assets
 ensure_model_layout
 start_core_stack
 "$SCRIPT_DIR/verify-fresh-gb10.sh" --env "$ENV_FILE"

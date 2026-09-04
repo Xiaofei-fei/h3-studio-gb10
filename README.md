@@ -18,7 +18,7 @@ H3 Studio 是 MiniMax H3 的本地控制台：React 前端负责操作界面，N
 
 - Node.js 22 或兼容的当前 LTS；npm。
 - 目标推理机具备 NVIDIA GB10、Docker Compose v2 与 NVIDIA 容器运行时。新机器可直接使用[全新 GB10 部署](docs/fresh-gb10-deployment.md)，不再要求预先运行 ComfyUI；旧的已有 ComfyUI 部署仍见下文与[GB10 部署](docs/deployment-gb10.md)。
-- 已从授权来源获得 H3、Music3、VAE、LoRA 与可选增强模型，并已安装所需 ComfyUI 节点。文件清单见 [模型与节点清单](docs/model-and-node-manifest.md)，下载入口、目标目录和镜像前置见[大文件下载与预置清单](docs/downloads.md)。
+- 已确认 H3、Music3、VAE、LoRA 与可选增强模型的上游许可证，并已安装所需 ComfyUI 节点。FastH3 VSA 的 ComfyUI LoRA 与 gate 为公开资产；文件清单见 [模型与节点清单](docs/model-and-node-manifest.md)，下载入口、目标目录和镜像前置见[大文件下载与预置清单](docs/downloads.md)。
 - 从部署机到 GB10 的 SSH / rsync 访问；部署脚本不会传输模型或凭据。
 
 ## 快速开始
