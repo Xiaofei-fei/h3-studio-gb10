@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -98,6 +99,20 @@ describe('fresh GB10 deployment contract', () => {
   it('explains how a non-root administrator prepares the default writable deployment directory', () => {
     const deploymentGuide = source('docs/fresh-gb10-deployment.md');
     expect(deploymentGuide).toContain('sudo install -d -m 0750 -o "$USER" -g "$(id -gn)" /opt/h3-studio');
+  });
+
+  it('keeps fresh-host entrypoint scripts executable after a Git clone', () => {
+    for (const path of [
+      'scripts/bootstrap-fresh-gb10.sh',
+      'scripts/verify-fresh-gb10.sh',
+      'scripts/publish-comfy-runtime-gb10.sh',
+    ]) {
+      const stage = execFileSync('git', ['ls-files', '--stage', '--', path], {
+        cwd: process.cwd(),
+        encoding: 'utf8',
+      });
+      expect(stage.startsWith('100755 ')).toBe(true);
+    }
   });
 
   it('keeps model weights and local credentials out of every Docker build context', () => {
