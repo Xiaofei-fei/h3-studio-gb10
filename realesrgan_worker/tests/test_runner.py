@@ -7,6 +7,7 @@ from realesrgan_worker.runner import (
     cleanup_failed_encoder,
     ffmpeg_encode_command,
     partial_video_path,
+    readiness_reason,
 )
 
 
@@ -33,6 +34,17 @@ def test_ffmpeg_streaming_encoder_preserves_audio_and_uses_validated_2k_canvas()
         "-vf", "scale=2560:1478:flags=lanczos", "-c:v", "libx264", "-crf", "18",
         "-pix_fmt", "yuv420p", "-c:a", "copy", "/work/.coffee.partial.mp4",
     ]
+
+
+def test_readiness_allows_the_current_gb10_host_reserve_for_the_6g_streaming_worker(
+    monkeypatch,
+) -> None:
+    import realesrgan_worker.runner as runner
+
+    monkeypatch.setattr(runner, "verified_model_path", lambda _model_dir: Path("/models/RealESRGAN_x2plus.pth"))
+    monkeypatch.setattr(runner, "available_memory_bytes", lambda: 18 * 1024 * 1024 * 1024)
+
+    assert readiness_reason(Path("/models")) is None
 
 
 def test_failed_or_interrupted_encoder_cleans_only_the_partial_video(tmp_path: Path) -> None:

@@ -510,7 +510,7 @@ describe('H3 Studio BFF', () => {
       .send({ ...validRequest, width: 1920, height: 1080 });
 
     expect(response.status).toBe(400);
-    expect(response.body.message).toContain('480P 或 720P');
+    expect(response.body.message).toContain('当前演示仅支持 H3 兼容的画幅预设');
     expect(client.prompts).toHaveLength(0);
   });
 
@@ -635,6 +635,42 @@ describe('H3 Studio BFF', () => {
       target: '2k',
       width: 2560,
       height: 1440,
+    });
+  });
+
+  it('starts deterministic 2K enhancement for the H3-native 768P historical output', async () => {
+    const deterministic = fakeDeterministicUpscaleWorker({
+      health: {
+        available: true,
+        model: 'realesrgan-x2plus-fp16',
+        supportedProfiles: [{ sourceWidth: 1344, sourceHeight: 768, target: '2k', width: 2560, height: 1464 }],
+      },
+      created: { id: 'det-768', state: 'queued', target: '2k', width: 2560, height: 1464, totalElapsedMs: 0 },
+    });
+    const app = createApp(fakeClient(), fakeFlashVsrWorker(), {
+      deterministicUpscale: deterministic,
+      upscalePollIntervalMs: 1,
+    });
+
+    const started = await request(app)
+      .post('/api/history/upscale')
+      .send({
+        sourceJobId: 'history-768',
+        source: { filename: 'coffee-768.mp4', subfolder: 'H3Studio', type: 'output' },
+        width: 1344,
+        height: 768,
+        method: 'deterministic',
+        target: '2k',
+      })
+      .expect(202);
+
+    expect(started.body).toMatchObject({
+      id: 'det-768',
+      sourceJobId: 'history-768',
+      method: 'deterministic',
+      target: '2k',
+      width: 2560,
+      height: 1464,
     });
   });
 

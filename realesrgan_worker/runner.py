@@ -106,7 +106,7 @@ def readiness_reason(model_dir: Path) -> str | None:
     except RuntimeError as error:
         return str(error)
     if available_memory_bytes() < MIN_AVAILABLE_MEMORY_BYTES:
-        return "可用系统内存不足，稳定增强需要至少 20 GiB 空闲内存。"
+        return "可用系统内存不足，稳定增强需要至少 12 GiB 空闲内存。"
     return None
 
 

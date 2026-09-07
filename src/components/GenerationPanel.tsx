@@ -14,6 +14,9 @@ interface GenerationPanelProps {
   job: GenerationJob | null;
   api: StudioApi;
   onRetry: () => void;
+  taeH3Preview?: boolean;
+  taeH3PreviewCapability?: ServiceCapability;
+  onTaeH3PreviewChange?: (enabled: boolean) => void;
   onStop?: () => void;
   isStopping?: boolean;
   stopError?: string;
@@ -68,6 +71,36 @@ function formatElapsed(elapsedMs: number) {
   if (hours > 0) return `${hours} 小时 ${minutes.toString().padStart(2, '0')} 分`;
   if (minutes > 0) return `${minutes} 分 ${seconds.toString().padStart(2, '0')} 秒`;
   return `${seconds} 秒`;
+}
+
+function PreviewToolbar({
+  taeH3Preview = false,
+  taeH3PreviewCapability,
+  onTaeH3PreviewChange,
+}: Pick<GenerationPanelProps, 'taeH3Preview' | 'taeH3PreviewCapability' | 'onTaeH3PreviewChange'>) {
+  const canToggleTaeH3 = taeH3PreviewCapability?.available === true && Boolean(onTaeH3PreviewChange);
+  if (!canToggleTaeH3 && !taeH3PreviewCapability?.reason) return null;
+
+  return (
+    <div className="preview-toolbar" aria-label="预览设置">
+      <span>实时预览</span>
+      {canToggleTaeH3 ? (
+        <button
+          type="button"
+          className={`taeh3-preview-switch ${taeH3Preview ? 'is-active' : ''}`}
+          role="switch"
+          aria-label="TAEH3 实时预览"
+          aria-checked={taeH3Preview}
+          onClick={() => onTaeH3PreviewChange?.(!taeH3Preview)}
+        >
+          <i aria-hidden="true" />
+          <span>TAEH3</span>
+        </button>
+      ) : (
+        <small>{taeH3PreviewCapability?.reason}</small>
+      )}
+    </div>
+  );
 }
 
 interface MediaVariant {
@@ -153,6 +186,9 @@ export function GenerationPanel({
   job,
   api,
   onRetry,
+  taeH3Preview,
+  taeH3PreviewCapability,
+  onTaeH3PreviewChange,
   onStop,
   isStopping = false,
   stopError,
@@ -185,11 +221,19 @@ export function GenerationPanel({
     ? Math.min(100, Math.round(((job.step || 0) / job.totalSteps) * 100))
     : state === 'completed' ? 100 : 0;
   const currentStage = stateIndex[state];
+  const previewToolbar = (
+    <PreviewToolbar
+      taeH3Preview={taeH3Preview}
+      taeH3PreviewCapability={taeH3PreviewCapability}
+      onTaeH3PreviewChange={onTaeH3PreviewChange}
+    />
+  );
 
   if (state === 'completed' && job?.media && selectedVariant) {
     const mediaUrl = api.mediaUrl(selectedVariant.media);
     return (
       <section className="generation-panel is-complete" aria-live="polite">
+        {previewToolbar}
         <div className="panel-eyebrow"><span className="status-orb complete" />已完成 <span className="panel-time">本次生成</span></div>
         <div className={`video-frame ${isMusic3 ? 'audio-frame' : ''}`}>
           {isMusic3 ? <audio controls preload="metadata" src={mediaUrl} /> : <video key={selectedVariant.id} controls preload="metadata" src={mediaUrl} />}
@@ -265,6 +309,7 @@ export function GenerationPanel({
   if (state === 'failed') {
     return (
       <section className="generation-panel failed-panel" aria-live="assertive">
+        {previewToolbar}
         <div className="failure-icon">!</div>
         <p className="panel-eyebrow">本次任务未完成</p>
         <h2>{job?.message || '暂时无法创建这段视频。'}</h2>
@@ -277,6 +322,7 @@ export function GenerationPanel({
   if (state === 'cancelled') {
     return (
       <section className="generation-panel cancelled-panel" aria-live="polite">
+        {previewToolbar}
         <div className="cancelled-icon" aria-hidden="true">×</div>
         <p className="panel-eyebrow">本次任务已停止</p>
         <h2>{job?.message || '已停止本次视频生成。'}</h2>
@@ -289,20 +335,22 @@ export function GenerationPanel({
   if (state === 'idle') {
     return (
       <section className="generation-panel idle-panel">
-        <div className="ambient-canvas" aria-hidden="true">
-          <div className="ambient-grid" />
-          <div className="ambient-sphere sphere-one" />
-          <div className="ambient-sphere sphere-two" />
-          <div className="ambient-line line-one" />
-          <div className="ambient-line line-two" />
-          <div className="ambient-title">H3</div>
-        </div>
-        <div className="idle-copy">
-          <span className="panel-eyebrow"><span className="status-orb" />创作空间已就绪</span>
-          <h2>从一句描述，开始一段视听叙事。</h2>
-          <p>输入场景、镜头和声音，H3 将把它们共同编织为一段完整视频。</p>
-          <div className="idle-specs">
-            <span>原生视听生成</span><i /> <span>24 FPS</span><i /> <span>本机私有连接</span>
+        {previewToolbar}
+        <div className="preview-empty-state">
+          <div className="preview-empty-illustration" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none">
+              <rect x="8" y="13" width="48" height="38" rx="7" />
+              <path d="m27 25 14 7-14 7V25Z" />
+              <path d="M18 7v7M46 7v7M18 51v6M46 51v6" />
+            </svg>
+          </div>
+          <div className="idle-copy">
+            <span className="panel-eyebrow"><span className="status-orb" />预览已就绪</span>
+            <h2>等待你的下一段画面。</h2>
+            <p>从左侧写下场景、镜头与氛围，结果会在这里呈现。</p>
+            <div className="idle-specs">
+              <span>H3 视频生成</span><i /> <span>24 FPS</span><i /> <span>本机私有连接</span>
+            </div>
           </div>
         </div>
       </section>
@@ -311,6 +359,7 @@ export function GenerationPanel({
 
   return (
     <section className="generation-panel progress-panel" aria-live="polite">
+      {previewToolbar}
       <div className="progress-header">
         <div>
           <span className="panel-eyebrow"><span className="status-orb pulse" />实时生成中</span>

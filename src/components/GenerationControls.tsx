@@ -1,12 +1,22 @@
 import { useState, type CSSProperties } from 'react';
-import { RESOLUTION_PRESETS, type ComfyServiceCapabilities, type GenerationForm } from '../types';
+import {
+  FASTH3_RESOLUTION_PRESETS,
+  OUTPUT_ASPECT_PRESETS,
+  RESOLUTION_PRESETS,
+  type ComfyServiceCapabilities,
+  type GenerationForm,
+  type OutputAspect,
+} from '../types';
+import { DisclosureSection } from './DisclosureSection';
 
-interface GenerationControlsProps {
+export interface GenerationControlsProps {
   form: GenerationForm;
   services?: ComfyServiceCapabilities;
   showAdvanced: boolean;
+  runSettingsOpen: boolean;
   onChange: (patch: Partial<GenerationForm>) => void;
   onToggleAdvanced: () => void;
+  onToggleRunSettings: () => void;
 }
 
 const STANDARD_PRESET: Partial<GenerationForm> = {
@@ -77,29 +87,9 @@ function cacheProfileName(profile: GenerationForm['featureCacheProfile']) {
   return 'Safe';
 }
 
-function TAEH3PreviewToggle({
-  form,
-  services,
-  onChange,
-}: Pick<GenerationControlsProps, 'form' | 'services' | 'onChange'>) {
-  const capability = services?.taeH3Preview;
-  const available = capability?.available === true;
-  return (
-    <label className="feature-cache-control optimization-toggle realtime-preview-toggle">
-      <input
-        type="checkbox"
-        aria-label="TAEH3 实时预览"
-        checked={form.taeH3Preview}
-        disabled={!available}
-        onChange={(event) => onChange({ taeH3Preview: event.target.checked })}
-      />
-      <span className="feature-cache-track" aria-hidden="true"><i /></span>
-      <span className="feature-cache-copy">
-        <strong>TAEH3 实时预览</strong>
-        <small>{capability?.reason || '每步近似解码以查看构图和运动；最终成片仍使用官方视频 VAE。'}</small>
-      </span>
-    </label>
-  );
+function outputAspectForDimensions(width: number, height: number): OutputAspect {
+  if (width === height) return 'square';
+  return width > height ? 'landscape' : 'portrait';
 }
 
 function FastH3OptimizationPicker({
@@ -587,9 +577,24 @@ function Music3Controls({ form, onChange }: Pick<GenerationControlsProps, 'form'
   );
 }
 
-export function GenerationControls({ form, services, showAdvanced, onChange, onToggleAdvanced }: GenerationControlsProps) {
+export function GenerationControls({
+  form,
+  services,
+  showAdvanced,
+  runSettingsOpen,
+  onChange,
+  onToggleAdvanced,
+  onToggleRunSettings,
+}: GenerationControlsProps) {
   const isFastH3 = form.service === 'fasth3_vsa';
   const isMusic3 = form.service === 'music3';
+  const isKeyframeMode = form.inputMode === 'keyframes';
+  const allResolutionPresets = isFastH3 ? FASTH3_RESOLUTION_PRESETS : RESOLUTION_PRESETS;
+  const selectedAspect = outputAspectForDimensions(form.width, form.height);
+  const aspectPresets = isFastH3
+    ? OUTPUT_ASPECT_PRESETS.filter((preset) => preset.id === 'landscape')
+    : OUTPUT_ASPECT_PRESETS;
+  const resolutionPresets = allResolutionPresets.filter((preset) => preset.aspect === selectedAspect);
   const fastH3Capability = services?.fastH3Vsa;
   const fastH3Available = fastH3Capability?.available === true;
   const music3Capability = services?.music3;
@@ -613,9 +618,26 @@ export function GenerationControls({ form, services, showAdvanced, onChange, onT
   const advancedSummary = isFastH3
     ? '4 步 · Euler（固定）'
     : isMusic3 ? '30 步 · Euler（固定）' : form.turbo8Step ? '8 步 · Turbo LoRA' : `${form.steps} 步 · ${presetSummary}`;
+  const runtimeSummary = isMusic3
+    ? `MiniMax Music3 · ${form.seconds} 秒 · ${advancedSummary}`
+    : `${isFastH3 ? 'FastH3 VSA' : 'H3 Standard'} · ${form.width} × ${form.height} · ${form.seconds} 秒 · ${advancedSummary}`;
+  const selectAspect = (aspect: OutputAspect) => {
+    if (aspect === selectedAspect) return;
+    const matchingPresets = allResolutionPresets.filter((preset) => preset.aspect === aspect);
+    const nextPreset = matchingPresets.find((preset) => preset.recommended) ?? matchingPresets[0];
+    if (nextPreset) onChange({ width: nextPreset.width, height: nextPreset.height });
+  };
 
   return (
     <section className="generation-controls" aria-label="生成参数">
+      <DisclosureSection
+        id="run-settings"
+        label="运行参数"
+        summary={runtimeSummary}
+        open={runSettingsOpen}
+        onOpenChange={onToggleRunSettings}
+        className="runtime-settings"
+      >
       <div className="control-section service-section">
         <div className="field-heading"><span>推理服务</span><span className="subtle-label">可做同配置 A/B</span></div>
         <div className="segmented-control service-selector" role="group" aria-label="推理服务">
@@ -659,16 +681,40 @@ export function GenerationControls({ form, services, showAdvanced, onChange, onT
       </div>
       {isMusic3 ? <Music3Controls form={form} onChange={onChange} /> : <>
       <div className="control-section">
-        <div className="field-heading"><span>输出清晰度</span><span className="subtle-label">稳定预设</span></div>
-        <div className="segmented-control resolutions" role="group" aria-label="输出清晰度">
-          {RESOLUTION_PRESETS.map((preset) => {
+        <div className="field-heading"><span>输出画幅</span><span className="subtle-label">决定构图比例</span></div>
+        {isKeyframeMode && <p className="field-hint">首尾帧可使用全部 H3 兼容画幅；先按首帧比例选择画幅，再选择清晰度，避免拉伸。</p>}
+        <div className="segmented-control output-aspects" role="group" aria-label="输出画幅">
+          {aspectPresets.map((preset) => {
+            const selected = selectedAspect === preset.id;
+            return (
+              <button
+                type="button"
+                key={preset.id}
+                aria-pressed={selected}
+                className={selected ? 'is-selected' : ''}
+                disabled={isFastH3}
+                onClick={() => selectAspect(preset.id)}
+              >
+                <strong>{preset.label}</strong>
+                <small>{preset.detail}</small>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="control-section">
+        <div className="field-heading"><span>输出分辨率</span><span className="subtle-label">{isFastH3 ? 'FastH3 固定 832 × 480' : '决定像素尺寸'}</span></div>
+        <div className="segmented-control resolutions" role="group" aria-label="输出分辨率">
+          {resolutionPresets.map((preset) => {
             const selected = form.width === preset.width && form.height === preset.height;
             return (
               <button
                 type="button"
-                key={preset.label}
+                key={preset.id}
                 aria-pressed={selected}
                 className={selected ? 'is-selected' : ''}
+                disabled={isFastH3}
                 onClick={() => onChange({ width: preset.width, height: preset.height })}
               >
                 <strong>{preset.label}</strong>
@@ -701,10 +747,8 @@ export function GenerationControls({ form, services, showAdvanced, onChange, onT
         <p className="output-detail">实际输出：{form.width} × {form.height} · {frames} 帧 · 约 {actualSeconds} 秒 · 24 FPS</p>
       </div>
 
-      <div className="control-section realtime-preview-section">
-        <div className="field-heading"><span>实时预览</span><span className="subtle-label">独立开关</span></div>
-        <TAEH3PreviewToggle form={form} services={services} onChange={onChange} />
-      </div>
+      </>}
+      </DisclosureSection>
 
       <div className={`advanced-settings ${showAdvanced ? 'is-open' : ''}`}>
         <button className="advanced-toggle" type="button" onClick={onToggleAdvanced} aria-expanded={showAdvanced}>
@@ -836,7 +880,6 @@ export function GenerationControls({ form, services, showAdvanced, onChange, onT
           </div>
         )}
       </div>
-      </>}
     </section>
   );
 }

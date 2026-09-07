@@ -25,19 +25,83 @@ async function openStandardOptimization(user: ReturnType<typeof userEvent.setup>
   await user.click(within(scoped.getByRole('region', { name: '推理优化' })).getByRole('button', { name: /配置/ }));
 }
 
+async function openRunSettings(user: ReturnType<typeof userEvent.setup>, container: HTMLElement) {
+  const runtime = within(container).getByRole('button', { name: /运行参数/ });
+  if (runtime.getAttribute('aria-expanded') !== 'true') await user.click(runtime);
+  return runtime;
+}
+
 afterEach(() => cleanup());
 
 describe('H3 Studio primary screen', () => {
-  it('shows two approved resolution choices and a disabled generate button without a prompt', () => {
-    render(<App api={api} />);
+  it('separates output aspect from resolution and filters compatible pixel presets', async () => {
+    const user = userEvent.setup();
+    const view = render(<App api={api} />);
+    await openRunSettings(user, view.container);
 
-    expect(screen.getByRole('button', { name: /480P/i })).toBeVisible();
-    expect(screen.getByRole('button', { name: /720P/i })).toBeVisible();
+    const aspectControls = screen.getByRole('group', { name: '输出画幅' });
+    const resolutionControls = screen.getByRole('group', { name: '输出分辨率' });
+
+    expect(within(aspectControls).getByRole('button', { name: /横屏.*16:9/i })).toBeVisible();
+    expect(within(aspectControls).getByRole('button', { name: /竖屏.*9:16/i })).toBeVisible();
+    expect(within(aspectControls).getByRole('button', { name: /方形.*1:1/i })).toBeVisible();
+    expect(within(aspectControls).queryByRole('button', { name: /480P/i })).toBeNull();
+    expect(within(resolutionControls).getByRole('button', { name: /480P.*832.*480/i })).toBeVisible();
+    expect(within(resolutionControls).getByRole('button', { name: /576P.*1024.*576/i })).toBeVisible();
+    expect(within(resolutionControls).getByRole('button', { name: /768P.*1344.*768/i })).toBeVisible();
+    expect(within(resolutionControls).queryByRole('button', { name: /横屏.*16:9/i })).toBeNull();
+
+    await user.click(within(aspectControls).getByRole('button', { name: /竖屏.*9:16/i }));
+
+    expect(screen.getByText(/实际输出：576 × 1024/)).toBeVisible();
+    expect(within(resolutionControls).getByRole('button', { name: /1024P.*576.*1024/i })).toBeVisible();
+    expect(within(resolutionControls).queryByRole('button', { name: /480P/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /720P/i })).toBeNull();
     expect(screen.getByRole('button', { name: /生成视频/i })).toBeDisabled();
   });
 
-  it('lets a creator select a duration up to fifteen seconds', () => {
+  it('keeps video input compact by default and expands keyframes when selected', async () => {
+    const user = userEvent.setup();
     render(<App api={api} />);
+
+    const inputTrigger = screen.getByRole('button', { name: /视频输入模式.*纯文本/ });
+    expect(inputTrigger).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(inputTrigger);
+    await user.click(screen.getByRole('button', { name: '首尾帧' }));
+
+    expect(screen.getByRole('button', { name: /视频输入模式.*首尾帧.*0 张素材/ })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('首帧（必填）')).toBeVisible();
+  });
+
+  it('hides service and canvas controls behind a truthful runtime summary', async () => {
+    const user = userEvent.setup();
+    render(<App api={api} />);
+
+    const runtime = screen.getByRole('button', { name: /运行参数.*H3 Standard.*1344.*768.*5 秒/ });
+    expect(runtime).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('button', { name: /竖屏 9:16/i })).toBeNull();
+
+    await user.click(runtime);
+    await user.click(screen.getByRole('button', { name: /竖屏 9:16/i }));
+
+    expect(runtime).toHaveTextContent(/576.*1024/);
+  });
+
+  it('keeps a single primary generation action while secondary controls remain disclosures', () => {
+    const view = render(<App api={api} />);
+
+    expect(screen.getAllByRole('button', { name: '生成视频' })).toHaveLength(1);
+    expect(screen.getByRole('button', { name: /视频输入模式/ })).toHaveClass('disclosure-trigger');
+    expect(screen.getByRole('button', { name: /运行参数/ })).toHaveClass('disclosure-trigger');
+    expect(view.container.querySelector('.preview-empty-state')).toBeInTheDocument();
+    expect(view.container.querySelector('.ambient-canvas')).not.toBeInTheDocument();
+  });
+
+  it('lets a creator select a duration up to fifteen seconds', async () => {
+    const user = userEvent.setup();
+    const view = render(<App api={api} />);
+    await openRunSettings(user, view.container);
 
     expect(screen.getByLabelText('视频时长')).toHaveAttribute('max', '15');
   });
@@ -207,6 +271,7 @@ describe('H3 Studio primary screen', () => {
     const view = render(<App api={fastApi} />);
     const scoped = within(view.container);
 
+    await openRunSettings(user, view.container);
     const fastService = scoped.getByRole('button', { name: 'FastH3 VSA' });
     await waitFor(() => expect(fastService).toBeEnabled());
     await user.click(fastService);
@@ -226,7 +291,7 @@ describe('H3 Studio primary screen', () => {
     const vsaLayoutKernel = within(picker).getByRole('checkbox', { name: 'VSA Fused Layout Engine' });
     expect(vsaLayoutKernel).toBeEnabled();
     expect(vsaLayoutKernel).toBeChecked();
-    expect(within(picker).getByText('VSA Fused Layout Engine')).toBeVisible();
+    expect(within(picker).getAllByText('VSA Fused Layout Engine')).toHaveLength(2);
     expect(within(picker).queryByText('VSA Fused Layout Engine 无损')).not.toBeInTheDocument();
     expect(within(picker).getByText('无损 · 等价布局重排')).toBeVisible();
 
@@ -293,6 +358,7 @@ describe('H3 Studio primary screen', () => {
     const view = render(<App api={fastApi} />);
     const scoped = within(view.container);
 
+    await openRunSettings(user, view.container);
     await user.click(scoped.getByRole('button', { name: 'FastH3 VSA' }));
     await user.click(scoped.getByRole('button', { name: /精细设置/i }));
     const picker = scoped.getByRole('region', { name: '推理优化' });
@@ -320,6 +386,7 @@ describe('H3 Studio primary screen', () => {
   });
 
   it('keeps an unavailable FastH3 service disabled and explains why', async () => {
+    const user = userEvent.setup();
     const unavailableApi: StudioApi = {
       ...api,
       getHealth: async () => ({
@@ -337,6 +404,7 @@ describe('H3 Studio primary screen', () => {
     const view = render(<App api={unavailableApi} />);
     const scoped = within(view.container);
 
+    await openRunSettings(user, view.container);
     const fastService = scoped.getByRole('button', { name: 'FastH3 VSA' });
     await waitFor(() => expect(fastService).toBeDisabled());
     expect(scoped.getByText('缺少 H3VSA 节点。')).toBeVisible();
@@ -579,6 +647,7 @@ describe('H3 Studio primary screen', () => {
     const view = render(<App api={inputModeApi} />);
     const scoped = within(view.container);
 
+    await user.click(scoped.getByRole('button', { name: /视频输入模式.*纯文本/ }));
     await user.click(scoped.getByRole('button', { name: '首尾帧' }));
     expect(scoped.getByRole('button', { name: '首尾帧' })).toHaveAttribute('aria-pressed', 'true');
     expect(scoped.getByText('首帧（必填）')).toBeVisible();
@@ -586,6 +655,7 @@ describe('H3 Studio primary screen', () => {
     await user.click(scoped.getByRole('button', { name: '多模态参考' }));
     expect(scoped.getByText('引用 <Picture 1>、<Video 1>、<Audio 1>')).toBeVisible();
 
+    await openRunSettings(user, view.container);
     const music3 = scoped.getByRole('button', { name: 'MiniMax Music3' });
     await waitFor(() => expect(music3).toBeEnabled());
     await user.click(music3);
@@ -593,7 +663,56 @@ describe('H3 Studio primary screen', () => {
     expect(scoped.getByLabelText('歌词 Lyrics')).toBeVisible();
   });
 
-  it('keeps TAEH3 real-time preview outside inference optimization controls', async () => {
+  it('keeps H3-compatible high-resolution and portrait canvas controls available to keyframes', async () => {
+    const user = userEvent.setup();
+    const view = render(<App api={api} />);
+    const scoped = within(view.container);
+
+    await user.click(scoped.getByRole('button', { name: /视频输入模式.*纯文本/ }));
+    await user.click(scoped.getByRole('button', { name: '首尾帧' }));
+    await openRunSettings(user, view.container);
+    await user.click(scoped.getByRole('button', { name: /竖屏 9:16/i }));
+
+    expect(scoped.getByText(/首尾帧可使用全部 H3 兼容画幅/)).toBeVisible();
+    expect(scoped.getByText(/实际输出：576 × 1024/)).toBeVisible();
+    const aspectControls = scoped.getByRole('group', { name: '输出画幅' });
+    const resolutionControls = scoped.getByRole('group', { name: '输出分辨率' });
+    expect(within(resolutionControls).getByRole('button', { name: /1024P.*576.*1024/i })).toBeVisible();
+
+    await user.click(within(aspectControls).getByRole('button', { name: /横屏.*16:9/i }));
+
+    expect(within(resolutionControls).getByRole('button', { name: /768P.*1344.*768/i })).toBeVisible();
+    expect(scoped.queryByRole('button', { name: /720P/i })).toBeNull();
+  });
+
+  it('resets FastH3 VSA to its verified 832 × 480 canvas', async () => {
+    const user = userEvent.setup();
+    const fastApi: StudioApi = {
+      ...api,
+      getHealth: async () => ({
+        connected: true,
+        deviceName: 'NVIDIA GB10',
+        services: {
+          h3Standard: { available: true },
+          h3StandardCublasInt8: { available: true },
+          fastH3Vsa: { available: true },
+          fastH3CublasInt8: { available: true },
+          fastH3VaeTileBatch: { available: true },
+        } as unknown as ComfyServiceCapabilities,
+      }),
+    };
+    const view = render(<App api={fastApi} />);
+    const scoped = within(view.container);
+
+    await openRunSettings(user, view.container);
+    const fastService = scoped.getByRole('button', { name: 'FastH3 VSA' });
+    await waitFor(() => expect(fastService).toBeEnabled());
+    await user.click(fastService);
+
+    expect(scoped.getByText(/实际输出：832 × 480/)).toBeVisible();
+  });
+
+  it('keeps the TAEH3 real-time preview switch in the preview toolbar for H3 Standard only', async () => {
     const user = userEvent.setup();
     const previewApi: StudioApi = {
       ...api,
@@ -614,21 +733,21 @@ describe('H3 Studio primary screen', () => {
     const view = render(<App api={previewApi} />);
     const scoped = within(view.container);
 
-    const previewHeading = await scoped.findByText('实时预览');
-    const previewSection = previewHeading.closest('.realtime-preview-section');
-    expect(previewSection).not.toBeNull();
-    const previewToggle = within(previewSection as HTMLElement).getByRole('checkbox', { name: 'TAEH3 实时预览' });
-    expect(previewToggle).toBeEnabled();
+    const previewToggle = await scoped.findByRole('switch', { name: 'TAEH3 实时预览' });
+    expect(previewToggle.closest('.preview-toolbar')).not.toBeNull();
+    expect(previewToggle).toHaveAttribute('aria-checked', 'false');
 
     await user.click(scoped.getByRole('button', { name: /精细设置/i }));
     expect(scoped.getByRole('region', { name: '推理优化' }).querySelector('[aria-label="TAEH3 实时预览"]')).toBeNull();
 
     await user.click(previewToggle);
+    expect(scoped.getByRole('switch', { name: 'TAEH3 实时预览' })).toHaveAttribute('aria-checked', 'true');
+    await openRunSettings(user, view.container);
     await user.click(scoped.getByRole('button', { name: 'FastH3 VSA' }));
-    expect(scoped.getByRole('checkbox', { name: 'TAEH3 实时预览' })).toBeChecked();
+    expect(scoped.queryByRole('switch', { name: 'TAEH3 实时预览' })).not.toBeInTheDocument();
 
     await user.click(scoped.getByRole('button', { name: 'MiniMax Music3' }));
-    expect(scoped.queryByText('实时预览')).not.toBeInTheDocument();
+    expect(scoped.queryByRole('switch', { name: 'TAEH3 实时预览' })).not.toBeInTheDocument();
   });
 
   it('stops the active H3 Studio task from the generation panel', async () => {

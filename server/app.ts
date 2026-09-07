@@ -297,11 +297,7 @@ function targetDimensionsError(
   method: UpscaleMethod,
 ): string | undefined {
   if (method === 'deterministic') {
-    const isVerifiedSource = (job.width === 832 && job.height === 480)
-      || (job.width === 1280 && job.height === 720);
-    return isVerifiedSource && target === '2k'
-      ? undefined
-      : '当前稳定增强仅支持 832×480 或 1280×720 视频提升至 2K。';
+    return target === '2k' ? undefined : '当前稳定增强仅支持提升至 2K。';
   }
   if (job.width === 832 && job.height === 480) {
     return target === '2k' ? undefined : '480P H3 视频仅支持提升至 2K。';

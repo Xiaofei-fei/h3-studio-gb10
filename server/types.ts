@@ -1,4 +1,4 @@
-export type ResolutionPreset = '480p' | '720p';
+export type ResolutionPreset = '480p' | '768p-landscape' | 'landscape-16x9' | 'portrait-9x16' | 'square-1x1';
 export type FeatureCacheProfile = 'safe' | 'fast' | 'aggressive';
 export type SpargeProfile = 'balanced' | 'fast';
 export type FastH3VaeTileBatchSize = 1 | 2 | 4;
@@ -203,7 +203,10 @@ export interface JobSnapshot {
 
 export const SUPPORTED_RESOLUTIONS = [
   { id: '480p', label: '480P', width: 832, height: 480 },
-  { id: '720p', label: '720P', width: 1280, height: 720 },
+  { id: '768p-landscape', label: '768P 横屏', width: 1344, height: 768 },
+  { id: 'landscape-16x9', label: '横屏 16:9', width: 1024, height: 576 },
+  { id: 'portrait-9x16', label: '竖屏 9:16', width: 576, height: 1024 },
+  { id: 'square-1x1', label: '方形 1:1', width: 768, height: 768 },
 ] as const;
 
 export const SUPPORTED_STEPS = [6, 10, 15, 20, 25] as const;

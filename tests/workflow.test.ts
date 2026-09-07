@@ -6,21 +6,34 @@ describe('H3 workflow inputs', () => {
     expect(calculateFrameLength(5)).toBe(124);
   });
 
-  it('accepts an approved 720P request', () => {
+  it('accepts the H3-native 768P canvas', () => {
     expect(normalizeGenerationRequest({
       prompt: 'A cinematic cup of coffee',
-      width: 1280,
-      height: 720,
+      width: 1344,
+      height: 768,
       seconds: 5,
       steps: 20,
       seed: 42,
     })).toMatchObject({
-      width: 1280,
-      height: 720,
+      width: 1344,
+      height: 768,
       seconds: 5,
       steps: 20,
       seed: 42,
     });
+  });
+
+  it('accepts the exact 9:16 portrait canvas for keyframe video', () => {
+    expect(normalizeGenerationRequest({
+      prompt: 'A phone screenshot slowly comes to life',
+      width: 576,
+      height: 1024,
+      seconds: 5,
+      steps: 6,
+      seed: 42,
+      inputMode: 'keyframes',
+      firstFrame: { filename: 'phone.png', type: 'input', kind: 'image' },
+    })).toMatchObject({ width: 576, height: 1024, inputMode: 'keyframes' });
   });
 
   it('normalizes FastH3 VSA requests to its fixed four-step Euler contract', () => {
@@ -54,6 +67,18 @@ describe('H3 workflow inputs', () => {
       spargeAttention: false,
       fusedModulation: false,
     });
+  });
+
+  it('rejects FastH3 VSA outside its verified 832×480 canvas', () => {
+    expect(() => normalizeGenerationRequest({
+      prompt: 'A cinematic cup of coffee',
+      width: 1344,
+      height: 768,
+      seconds: 5,
+      steps: 4,
+      seed: 42,
+      service: 'fasth3_vsa',
+    })).toThrow('FastH3 VSA 当前仅支持 832×480');
   });
 
   it('uses the direct FastH3 cuBLAS opt-in even when a legacy profile is submitted', () => {
@@ -97,7 +122,7 @@ describe('H3 workflow inputs', () => {
       seconds: 5,
       steps: 20,
       seed: 42,
-    })).toThrow('480P 或 720P');
+    })).toThrow('当前演示仅支持 H3 兼容的画幅预设');
   });
 
   it('maps prompt, output controls, and acceleration flags into API workflow inputs', () => {
@@ -682,6 +707,19 @@ describe('H3 workflow inputs', () => {
       seed: 42,
       inputMode: 'keyframes',
     })).toThrow('首帧');
+  });
+
+  it('rejects the legacy 720P canvas before ComfyUI runs', () => {
+    expect(() => normalizeGenerationRequest({
+      prompt: 'A close-up of coffee steam drifting upward',
+      width: 1280,
+      height: 720,
+      seconds: 5,
+      steps: 6,
+      seed: 42,
+      inputMode: 'keyframes',
+      firstFrame: { filename: 'coffee-first.png', type: 'input', kind: 'image' },
+    })).toThrow('当前演示仅支持 H3 兼容的画幅预设');
   });
 
   it('loads selected keyframes into the H3 image-to-video conditioning node', () => {

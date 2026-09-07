@@ -17,6 +17,7 @@ export type SamplerName = 'res_multistep' | 'euler';
 export type GenerationService = 'h3_standard' | 'fasth3_vsa' | 'music3';
 export type H3InputMode = 'text' | 'keyframes' | 'references';
 export type InputAssetKind = 'image' | 'video' | 'audio';
+export type OutputAspect = 'landscape' | 'portrait' | 'square';
 export type UpscaleTarget = '2k' | '4k';
 export type UpscaleMethod = 'flashvsr' | 'deterministic';
 export type UpscaleState = 'queued' | 'preparing' | 'upscaling' | 'saving' | 'cancelling' | 'completed' | 'failed' | 'cancelled';
@@ -206,8 +207,8 @@ export interface ConnectionStatus {
 export const DEFAULT_FORM: GenerationForm = {
   service: 'h3_standard',
   prompt: '',
-  width: 1280,
-  height: 720,
+  width: 1344,
+  height: 768,
   seconds: 5,
   steps: 20,
   samplerName: 'res_multistep',
@@ -240,7 +241,19 @@ export const DEFAULT_FORM: GenerationForm = {
   musicTiledDecode: true,
 };
 
-export const RESOLUTION_PRESETS = [
-  { label: '480P', detail: '832 × 480', width: 832, height: 480 },
-  { label: '720P', detail: '1280 × 720', width: 1280, height: 720 },
+export const OUTPUT_ASPECT_PRESETS = [
+  { id: 'landscape', label: '横屏', detail: '16:9' },
+  { id: 'portrait', label: '竖屏', detail: '9:16' },
+  { id: 'square', label: '方形', detail: '1:1' },
 ] as const;
+
+export const RESOLUTION_PRESETS = [
+  { id: 'landscape-480p', aspect: 'landscape', label: '480P', detail: '832 × 480 · 低时延', width: 832, height: 480, recommended: false },
+  { id: 'landscape-576p', aspect: 'landscape', label: '576P', detail: '1024 × 576 · 均衡', width: 1024, height: 576, recommended: false },
+  { id: 'landscape-768p', aspect: 'landscape', label: '768P', detail: '1344 × 768 · H3 原生', width: 1344, height: 768, recommended: true },
+  { id: 'portrait-1024p', aspect: 'portrait', label: '1024P', detail: '576 × 1024', width: 576, height: 1024, recommended: true },
+  { id: 'square-768p', aspect: 'square', label: '768P', detail: '768 × 768', width: 768, height: 768, recommended: true },
+] as const;
+
+export const KEYFRAME_RESOLUTION_PRESETS = RESOLUTION_PRESETS;
+export const FASTH3_RESOLUTION_PRESETS = [RESOLUTION_PRESETS[0]] as const;

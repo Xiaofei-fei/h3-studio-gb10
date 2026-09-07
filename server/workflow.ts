@@ -211,11 +211,17 @@ export function normalizeGenerationRequest(input: unknown): GenerationRequest {
 
   const width = asFiniteNumber(value.width, '清晰度');
   const height = asFiniteNumber(value.height, '清晰度');
+  if (service !== 'music3' && (width % 32 !== 0 || height % 32 !== 0)) {
+    throw new InputError('当前演示仅支持 H3 兼容的画幅预设（宽高需为 32 的整数倍）。');
+  }
   const isSupportedResolution = SUPPORTED_RESOLUTIONS.some(
     (resolution) => resolution.width === width && resolution.height === height,
   );
   if (!isSupportedResolution) {
-    throw new InputError('当前演示仅支持 480P 或 720P。');
+    throw new InputError('当前演示仅支持 H3 兼容的画幅预设。');
+  }
+  if (service === 'fasth3_vsa' && (width !== 832 || height !== 480)) {
+    throw new InputError('FastH3 VSA 当前仅支持 832×480 的已验证画幅。');
   }
 
   const seconds = asFiniteNumber(value.seconds, service === 'music3' ? '音乐时长' : '视频时长');

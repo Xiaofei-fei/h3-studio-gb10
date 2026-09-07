@@ -45,6 +45,36 @@ const completedJob: GenerationJob = {
 };
 
 describe('GenerationPanel', () => {
+  it('places the available TAEH3 switch in the preview toolbar and emits its next value', async () => {
+    const user = userEvent.setup();
+    const onTaeH3PreviewChange = vi.fn();
+    render(<GenerationPanel
+      job={null}
+      api={api}
+      onRetry={vi.fn()}
+      taeH3Preview={false}
+      taeH3PreviewCapability={{ available: true }}
+      onTaeH3PreviewChange={onTaeH3PreviewChange}
+    />);
+
+    const toggle = screen.getByRole('switch', { name: 'TAEH3 实时预览' });
+    expect(toggle).toBeVisible();
+    await user.click(toggle);
+    expect(onTaeH3PreviewChange).toHaveBeenCalledWith(true);
+  });
+
+  it('does not expose a TAEH3 switch when the preview capability is unavailable', () => {
+    const view = render(<GenerationPanel
+      job={null}
+      api={api}
+      onRetry={vi.fn()}
+      taeH3PreviewCapability={{ available: false, reason: '当前服务不支持实时预览。' }}
+    />);
+
+    expect(within(view.container).queryByRole('switch', { name: 'TAEH3 实时预览' })).not.toBeInTheDocument();
+    expect(within(view.container).getByText('当前服务不支持实时预览。')).toBeVisible();
+  });
+
   it('shows the completed video\'s actual end-to-end generation time', () => {
     render(<GenerationPanel job={completedJob} api={api} onRetry={vi.fn()} />);
 
@@ -151,6 +181,27 @@ describe('GenerationPanel', () => {
 
     await user.click(screen.getByRole('button', { name: '提升清晰度' }));
     const stableTarget = screen.getByRole('button', { name: '2K · 2560 × 1478 · 稳定增强' });
+    expect(stableTarget).toBeVisible();
+    await user.click(stableTarget);
+    expect(onStartUpscale).toHaveBeenCalledWith('deterministic', '2k');
+  });
+
+  it('keeps stable 2K enhancement visible for a completed H3-native 768P video', async () => {
+    const user = userEvent.setup();
+    const onStartUpscale = vi.fn();
+    render(<GenerationPanel
+      job={{ ...completedJob, width: 1344, height: 768, media: { filename: 'coffee-768.mp4', type: 'output' } }}
+      api={api}
+      onRetry={vi.fn()}
+      deterministicUpscale={{
+        available: true,
+        supportedProfiles: [{ sourceWidth: 1344, sourceHeight: 768, target: '2k', width: 2560, height: 1464 }],
+      }}
+      onStartUpscale={onStartUpscale}
+    />);
+
+    await user.click(screen.getByRole('button', { name: '提升清晰度' }));
+    const stableTarget = screen.getByRole('button', { name: '2K · 2560 × 1464 · 稳定增强' });
     expect(stableTarget).toBeVisible();
     await user.click(stableTarget);
     expect(onStartUpscale).toHaveBeenCalledWith('deterministic', '2k');

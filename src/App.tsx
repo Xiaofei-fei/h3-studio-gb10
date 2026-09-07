@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { studioApi, type StudioApi } from './api';
 import { ConnectionBadge } from './components/ConnectionBadge';
+import { DisclosureSection } from './components/DisclosureSection';
 import { GenerationControls } from './components/GenerationControls';
 import { GenerationPanel } from './components/GenerationPanel';
 import { HistoryGallery } from './components/HistoryGallery';
@@ -14,9 +15,23 @@ interface AppProps {
   api?: StudioApi;
 }
 
+function inputModeSummary(form: GenerationForm) {
+  if (form.inputMode === 'keyframes') {
+    const count = Number(Boolean(form.firstFrame)) + Number(Boolean(form.lastFrame));
+    return `首尾帧 · ${count} 张素材`;
+  }
+  if (form.inputMode === 'references') {
+    const count = form.referenceImages.length + form.referenceVideos.length + form.referenceAudios.length;
+    return `多模态参考 · ${count} 项`;
+  }
+  return '纯文本';
+}
+
 export function App({ api = studioApi }: AppProps) {
   const [form, setForm] = useState<GenerationForm>(DEFAULT_FORM);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [inputModeOpen, setInputModeOpen] = useState(false);
+  const [runSettingsOpen, setRunSettingsOpen] = useState(false);
   const [isUploadingAssets, setIsUploadingAssets] = useState(false);
   const {
     connection,
@@ -58,6 +73,8 @@ export function App({ api = studioApi }: AppProps) {
         h3StandardAdaGemmInt8: false,
         fastH3Gb10VsaKernel: connection.services?.fastH3Gb10VsaKernel?.available === true,
         fastH3FusedModulation: false,
+        width: 832,
+        height: 480,
         inputMode: 'text',
       };
     }
@@ -113,6 +130,12 @@ export function App({ api = studioApi }: AppProps) {
     }
     if (current.service === 'music3') {
       return { ...next, steps: 30, samplerName: 'euler', inputMode: 'text' };
+    }
+    if (patch.inputMode === 'keyframes') {
+      return {
+        ...next,
+        inputMode: 'keyframes',
+      };
     }
     if (patch.inputMode === 'references') {
       return {
@@ -175,6 +198,10 @@ export function App({ api = studioApi }: AppProps) {
       // The hook stores a customer-friendly failure state in the preview panel.
     }
   };
+  const selectInputMode = (inputMode: GenerationForm['inputMode']) => {
+    patchForm({ inputMode });
+    if (inputMode !== 'text') setInputModeOpen(true);
+  };
   const isMusic3 = form.service === 'music3';
   const isStandardH3 = form.service === 'h3_standard';
   const referenceCapability = connection.services?.h3References;
@@ -187,8 +214,6 @@ export function App({ api = studioApi }: AppProps) {
 
   return (
     <main className="app-shell">
-      <div className="page-glow glow-top" aria-hidden="true" />
-      <div className="page-glow glow-bottom" aria-hidden="true" />
       <header className="topbar">
         <div className="brand-lockup">
           <div className="brand-mark" aria-hidden="true"><i /><i /><i /></div>
@@ -200,16 +225,10 @@ export function App({ api = studioApi }: AppProps) {
         </div>
       </header>
 
-      <section className="hero-intro">
-        <span className="section-kicker">PRIVATE GENERATIVE ENVIRONMENT</span>
-        <h1>让每一个想法，<em>成为正在发生的画面。</em></h1>
-        <p>H3 Studio 将提示词、镜头语言与声音描述，编织成一段完整的视听内容。</p>
-      </section>
-
       <section className="studio-grid">
-        <div className="creation-card glass-card">
+        <div className="creation-card studio-surface">
           <div className="card-heading">
-            <div><span className="section-kicker">CREATE</span><h2>创建一段视频</h2></div>
+            <div><span className="section-kicker">CREATE VIDEO</span><h2>创建视频</h2></div>
             <span className="private-chip"><i />本机私有会话</span>
           </div>
           {isMusic3 ? (
@@ -223,15 +242,21 @@ export function App({ api = studioApi }: AppProps) {
             <>
               <PromptComposer value={form.prompt} onChange={(prompt) => patchForm({ prompt })} />
               {isStandardH3 && (
-                <section className="input-mode-control field-group" aria-label="视频输入模式">
-                  <div className="field-heading"><span>视频输入模式</span><span className="subtle-label">H3 Standard</span></div>
+                <DisclosureSection
+                  id="video-input-mode"
+                  label="视频输入模式"
+                  summary={inputModeSummary(form)}
+                  open={inputModeOpen}
+                  onOpenChange={setInputModeOpen}
+                  className="input-mode-control"
+                >
                   <div className="segmented-control input-mode-selector" role="group" aria-label="视频输入模式">
                     <button
                       type="button"
                       aria-label="纯文本"
                       aria-pressed={form.inputMode === 'text'}
                       className={form.inputMode === 'text' ? 'is-selected' : ''}
-                      onClick={() => patchForm({ inputMode: 'text' })}
+                      onClick={() => selectInputMode('text')}
                     >
                       <strong>纯文本</strong><small>按描述生成视听内容</small>
                     </button>
@@ -240,7 +265,7 @@ export function App({ api = studioApi }: AppProps) {
                       aria-label="首尾帧"
                       aria-pressed={form.inputMode === 'keyframes'}
                       className={form.inputMode === 'keyframes' ? 'is-selected' : ''}
-                      onClick={() => patchForm({ inputMode: 'keyframes' })}
+                      onClick={() => selectInputMode('keyframes')}
                     >
                       <strong>首尾帧</strong><small>约束起始与最终构图</small>
                     </button>
@@ -251,23 +276,23 @@ export function App({ api = studioApi }: AppProps) {
                       className={form.inputMode === 'references' ? 'is-selected' : ''}
                       disabled={!referenceModeReady}
                       title={referenceCapability?.reason}
-                      onClick={() => patchForm({ inputMode: 'references' })}
+                      onClick={() => selectInputMode('references')}
                     >
                       <strong>多模态参考</strong><small>图片、视频与音频条件</small>
                     </button>
                   </div>
                   {!referenceModeReady && referenceCapability?.reason && <p className="service-unavailable">{referenceCapability.reason}</p>}
-                </section>
-              )}
-              {isStandardH3 && form.inputMode !== 'text' && (
-                <ReferenceInputs
-                  mode={form.inputMode}
-                  form={form}
-                  api={api}
-                  disabled={busy}
-                  onChange={patchForm}
-                  onUploadStateChange={setIsUploadingAssets}
-                />
+                  {form.inputMode !== 'text' && (
+                    <ReferenceInputs
+                      mode={form.inputMode}
+                      form={form}
+                      api={api}
+                      disabled={busy}
+                      onChange={patchForm}
+                      onUploadStateChange={setIsUploadingAssets}
+                    />
+                  )}
+                </DisclosureSection>
               )}
             </>
           )}
@@ -275,8 +300,10 @@ export function App({ api = studioApi }: AppProps) {
             form={form}
             services={connection.services}
             showAdvanced={showAdvanced}
+            runSettingsOpen={runSettingsOpen}
             onChange={patchForm}
             onToggleAdvanced={() => setShowAdvanced((open) => !open)}
+            onToggleRunSettings={() => setRunSettingsOpen((open) => !open)}
           />
           <button className="generate-button" type="button" onClick={submit} disabled={!canGenerate}>
             <span className="generate-icon" aria-hidden="true">✦</span>
@@ -289,6 +316,9 @@ export function App({ api = studioApi }: AppProps) {
           job={currentJob}
           api={api}
           onRetry={() => { void retry(); }}
+          taeH3Preview={isStandardH3 ? form.taeH3Preview : undefined}
+          taeH3PreviewCapability={isStandardH3 ? connection.services?.taeH3Preview : undefined}
+          onTaeH3PreviewChange={isStandardH3 ? (enabled) => patchForm({ taeH3Preview: enabled }) : undefined}
           onStop={() => { void stop(); }}
           isStopping={isStopping}
           stopError={stopError}

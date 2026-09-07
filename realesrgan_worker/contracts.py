@@ -17,7 +17,10 @@ DeterministicUpscaleState = Literal[
 MODEL_NAME = "realesrgan-x2plus-fp16"
 MODEL_FILENAME = "RealESRGAN_x2plus.pth"
 MODEL_SHA256 = "49fafd45f8fd7aa8d31ab2a22d14d91b536c34494a5cfe31eb5d89c2fa266abb"
-MIN_AVAILABLE_MEMORY_BYTES = 20 * 1024 * 1024 * 1024
+# The sidecar is capped at 6 GiB and streams frames through 512 px tiles.  A
+# 12 GiB host reserve retains a 2x safety margin without hiding the worker on
+# a GB10 that is concurrently keeping H3 resident.
+MIN_AVAILABLE_MEMORY_BYTES = 12 * 1024 * 1024 * 1024
 TILE_SIZE = 512
 TILE_OVERLAP = 32
 
@@ -60,11 +63,35 @@ SUPPORTED_PROFILES = (
         target="2k",
         dimensions=TargetDimensions(final_width=2560, final_height=1440),
     ),
+    SupportedProfile(
+        source_width=1344,
+        source_height=768,
+        target="2k",
+        dimensions=TargetDimensions(final_width=2560, final_height=1464),
+    ),
+    SupportedProfile(
+        source_width=1024,
+        source_height=576,
+        target="2k",
+        dimensions=TargetDimensions(final_width=2560, final_height=1440),
+    ),
+    SupportedProfile(
+        source_width=576,
+        source_height=1024,
+        target="2k",
+        dimensions=TargetDimensions(final_width=1440, final_height=2560),
+    ),
+    SupportedProfile(
+        source_width=768,
+        source_height=768,
+        target="2k",
+        dimensions=TargetDimensions(final_width=2048, final_height=2048),
+    ),
 )
 
 
 def target_dimensions(source_width: int, source_height: int, target: str) -> TargetDimensions:
-    """Return only the end-to-end-validated H3 Standard enhancement profile."""
+    """Return only an end-to-end-validated H3 output enhancement profile."""
     for profile in SUPPORTED_PROFILES:
         if (
             source_width == profile.source_width
@@ -72,9 +99,9 @@ def target_dimensions(source_width: int, source_height: int, target: str) -> Tar
             and target == profile.target
         ):
             return profile.dimensions
-    if (source_width, source_height) in {(832, 480), (1280, 720)}:
+    if any((source_width, source_height) == (profile.source_width, profile.source_height) for profile in SUPPORTED_PROFILES):
         raise ValidationError(f"{source_width}×{source_height} H3 视频当前仅支持稳定 2K 增强。")
-    raise ValidationError("当前稳定增强仅支持 832×480 或 1280×720 的 H3 输出视频。")
+    raise ValidationError("当前稳定增强仅支持已验证的 H3 输出画幅。")
 
 
 @dataclass

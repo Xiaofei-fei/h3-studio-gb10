@@ -39,6 +39,30 @@ def test_worker_health_reports_the_verified_profiles(
             "target": "2k",
             "width": 2560,
             "height": 1440,
+        }, {
+            "sourceWidth": 1344,
+            "sourceHeight": 768,
+            "target": "2k",
+            "width": 2560,
+            "height": 1464,
+        }, {
+            "sourceWidth": 1024,
+            "sourceHeight": 576,
+            "target": "2k",
+            "width": 2560,
+            "height": 1440,
+        }, {
+            "sourceWidth": 576,
+            "sourceHeight": 1024,
+            "target": "2k",
+            "width": 1440,
+            "height": 2560,
+        }, {
+            "sourceWidth": 768,
+            "sourceHeight": 768,
+            "target": "2k",
+            "width": 2048,
+            "height": 2048,
         }],
     }
 
